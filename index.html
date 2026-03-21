@@ -1,880 +1,262 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fast TV War Room — Content Intelligence OS</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg:#080a0e; --bg1:#0e1117; --bg2:#141820; --bg3:#1c2230; --bg4:#242d3d;
-  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
-  --accent:#e8f43a; --accent2:#3af4b4; --accent3:#f43a6e; --accent4:#3a9ef4; --accent5:#f4903a;
-  --text:#f0f2f5; --text2:#8a95a8; --text3:#4a5568;
-  --red:#f43a6e; --green:#3af4b4; --amber:#f4c03a; --blue:#3a9ef4;
-  --mono:'JetBrains Mono',monospace; --sans:'Instrument Sans',sans-serif; --display:'Syne',sans-serif;
+const express = require('express');
+const http = require('http');
+const https = require('https');
+const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+const PORT = process.env.PORT || 3000;
+const DATA_FILE = path.join(__dirname, 'data.json');
+
+// ── Default data ──────────────────────────────────────────────────────────────
+const DEFAULT_DATA = {
+  tasks: [
+    { id:1, text:'Check DramaBox & ReelShort Meta Ad Library — count new active ads', owner:'Priya', due:'today', done:false },
+    { id:2, text:'Screenshot top 3 recurring Kuku TV YouTube pre-roll creatives', owner:'Arjun', due:'today', done:false },
+    { id:3, text:'Research JioHotstar Sparks pilot — confirm launch date', owner:'Rahul', due:'this-week', done:false },
+    { id:4, text:'Greenlight decision: Bhojpuri romance series (Episode 1 script received)', owner:'Me', due:'today', done:false },
+    { id:5, text:'Map ReelSaga genre library — identify uncovered tropes', owner:'Priya', due:'this-week', done:false },
+    { id:6, text:'Track Kuku TV Hindi show launch count this week', owner:'Arjun', due:'this-week', done:false }
+  ],
+  pipeline: {
+    'Ideation': [
+      { title:'Revenge Bahu', genre:'Crime / Revenge', lang:'Hindi', priority:'High', logline:'Daughter-in-law discovers family secret and reclaims what is hers.' },
+      { title:'Startup Queen', genre:'Workplace thriller', lang:'Hindi', priority:'Medium', logline:'Small-town girl disrupts Mumbai startup funded by the man who wronged her family.' }
+    ],
+    'Greenlit': [
+      { title:'Kuch Ankahi Baatein', genre:'Romance / CEO', lang:'Marathi', priority:'High', logline:'Billionaire falls for the one woman not impressed by his wealth.' }
+    ],
+    'In Production': [
+      { title:'Dil Ka Badla', genre:'Romance / CEO', lang:'Hindi', priority:'High', logline:'She fakes amnesia to escape a forced marriage — and falls for her captor.' }
+    ],
+    'Post Production': [],
+    'Launched': [
+      { title:'Raat Ka Raaz', genre:'Supernatural', lang:'Hindi', priority:'Medium', logline:'Night watchman discovers the building hides a 40-year-old secret.' }
+    ]
+  },
+  launches: [
+    { id:1, title:'CEO Ka Raaz', platform:'DramaBox', genre:'Romance / CEO', lang:'Hindi', eps:72, promo:'Heavy', source:'Meta Ads', hook:'He married me but never looked at me. Then he saw who I really was...', notes:'Identity reveal cliffhanger every 3 eps. 18 active ad creatives.', logger:'Priya', date:'2026-03-18' },
+    { id:2, title:'Badla Mera Haq', platform:'DramaBox', genre:'Crime / Revenge', lang:'Hindi', eps:65, promo:'Heavy', source:'Meta Ads', hook:'You humiliated me in front of everyone. Now watch who I become.', notes:'Revenge arc. Opens with public humiliation scene. Strong female lead.', logger:'Arjun', date:'2026-03-17' },
+    { id:3, title:'Anari Pati', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', eps:80, promo:'Moderate', source:'YouTube Ads', hook:'He acted useless but ran the whole empire from the shadows.', notes:'Hidden identity trope. Husband appears weak, actually billionaire.', logger:'Rahul', date:'2026-03-15' },
+    { id:4, title:'Married the Enemy', platform:'ReelShort', genre:'Romance / CEO', lang:'Hindi', eps:60, promo:'Heavy', source:'Meta Ads', hook:"I thought he was my enemy. Turns out he was protecting me all along.", notes:'16 creatives running. Opening: wedding day voiceover.', logger:'Priya', date:'2026-03-14' },
+    { id:5, title:'Daksh IAS', platform:'Kuku TV', genre:'Workplace thriller', lang:'Hindi', eps:90, promo:'Moderate', source:'YouTube Channel', hook:'From chai seller to IAS topper. The system never saw him coming.', notes:'Aspirational underdog arc. Strong Tier-2 resonance.', logger:'Arjun', date:'2026-03-12' },
+    { id:6, title:'Pyaar Dhoka Pyaar', platform:'QuickTV', genre:'Romance / CEO', lang:'Hindi', eps:55, promo:'Organic', source:'Instagram Reel', hook:'She loved him with everything. He used her for one reason.', notes:'Betrayal-first structure. High engagement from women 20–30.', logger:'Me', date:'2026-03-10' },
+    { id:7, title:'Revenge Bride', platform:'GoodShort', genre:'Crime / Revenge', lang:'Hindi', eps:68, promo:'Heavy', source:'Meta Ads', hook:"At the altar she smiled. Nobody knew what she had planned.", notes:'10 creatives. Wedding-day cold open.', logger:'Priya', date:'2026-03-08' },
+    { id:8, title:'Alpha CEO', platform:'ReelShort', genre:'Romance / CEO', lang:'Hindi', eps:75, promo:'Heavy', source:'Meta Ads', hook:'He never smiled at anyone. Until she walked into his boardroom.', notes:'13 creatives. Brooding male lead archetype.', logger:'Rahul', date:'2026-03-06' }
+  ],
+  idCounters: { tasks: 7, launches: 9 }
+};
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    }
+  } catch (e) { console.error('Load error:', e.message); }
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
-body{min-height:100vh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:1000}
-.topbar{position:sticky;top:0;z-index:200;background:rgba(8,10,14,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:52px;gap:0}
-.logo{font-family:var(--display);font-size:15px;font-weight:800;letter-spacing:.08em;color:var(--accent);margin-right:32px;display:flex;align-items:center;gap:8px}
-.logo-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
-.nav{display:flex;gap:2px;flex:1}
-.nav-btn{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:6px 16px;border-radius:4px;border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .2s}
-.nav-btn:hover{color:var(--text2);background:var(--bg2)}
-.nav-btn.active{color:var(--accent);background:rgba(232,244,58,0.08)}
-.topbar-right{display:flex;align-items:center;gap:12px;margin-left:auto}
-.sync-badge{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;border-radius:3px;padding:3px 8px;transition:all .3s}
-.sync-badge.connected{color:var(--green);border:1px solid rgba(58,244,180,0.2)}
-.sync-badge.disconnected{color:var(--red);border:1px solid rgba(244,58,110,0.2)}
-.sync-badge.connecting{color:var(--amber);border:1px solid rgba(244,192,58,0.2)}
-.sync-dot{width:5px;height:5px;border-radius:50%;animation:pulse 1.5s infinite}
-.time-display{font-family:var(--mono);font-size:11px;color:var(--text2)}
-.page{display:none;animation:fadeIn .3s ease}
-.page.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.pad{padding:24px}
-.section-header{display:flex;align-items:baseline;gap:12px;margin-bottom:20px}
-.section-title{font-family:var(--display);font-size:18px;font-weight:700;color:var(--text)}
-.section-sub{font-size:11px;color:var(--text3);font-family:var(--mono)}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
-.grid-2-3{display:grid;grid-template-columns:2fr 3fr;gap:14px;margin-bottom:20px}
-.grid-3-2{display:grid;grid-template-columns:3fr 2fr;gap:14px;margin-bottom:20px}
-.card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
-.card-title{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text2)}
-.card-body{padding:16px}
-.kpi-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:16px 18px;position:relative;overflow:hidden}
-.kpi-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
-.kpi-card.k-yellow::after{background:var(--accent)}
-.kpi-card.k-green::after{background:var(--green)}
-.kpi-card.k-red::after{background:var(--red)}
-.kpi-card.k-blue::after{background:var(--blue)}
-.kpi-label{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
-.kpi-val{font-family:var(--display);font-size:26px;font-weight:800;color:var(--text);line-height:1}
-.kpi-delta{font-family:var(--mono);font-size:10px;margin-top:6px}
-.kpi-delta.up{color:var(--green)} .kpi-delta.down{color:var(--red)} .kpi-delta.neutral{color:var(--text3)}
-.alert-strip{background:rgba(244,58,110,0.08);border:1px solid rgba(244,58,110,0.2);border-radius:6px;padding:10px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
-.alert-strip .label{font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
-.alert-scroll{display:flex;gap:24px;overflow-x:auto;scrollbar-width:none}
-.alert-scroll::-webkit-scrollbar{display:none}
-.alert-item{font-size:12px;color:var(--text2);white-space:nowrap;display:flex;align-items:center;gap:6px}
-.alert-item::before{content:'◆';font-size:7px;color:var(--red)}
-.plat-table{width:100%;border-collapse:collapse}
-.plat-table th{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;font-weight:500}
-.plat-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
-.plat-table tr:last-child td{border-bottom:none}
-.plat-table tr:hover td{background:rgba(255,255,255,0.02)}
-.plat-name-cell{display:flex;align-items:center;gap:10px}
-.plat-icon{width:28px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:10px;font-weight:800;flex-shrink:0}
-.pn{font-family:var(--display);font-size:13px;font-weight:600;color:var(--text)}
-.ps{font-family:var(--mono);font-size:10px;color:var(--text3)}
-.tier-badge{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;display:inline-block}
-.tier-dom{background:rgba(232,244,58,0.12);color:var(--accent);border:1px solid rgba(232,244,58,0.2)}
-.tier-intl{background:rgba(58,158,244,0.12);color:var(--blue);border:1px solid rgba(58,158,244,0.2)}
-.tier-local{background:rgba(58,244,180,0.12);color:var(--green);border:1px solid rgba(58,244,180,0.2)}
-.tier-bigco{background:rgba(244,144,58,0.12);color:var(--accent5);border:1px solid rgba(244,144,58,0.2)}
-.tier-new{background:rgba(244,192,58,0.1);color:var(--amber);border:1px solid rgba(244,192,58,0.2)}
-.signal-bar{display:flex;align-items:center;gap:8px}
-.bar-bg{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:60px}
-.bar-fg{height:100%;border-radius:2px}
-.bar-val{font-family:var(--mono);font-size:10px;color:var(--text3);width:26px;text-align:right}
-.mono-sm{font-family:var(--mono);font-size:11px;color:var(--text2)}
-.genre-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.genre-name{font-size:12px;color:var(--text2);width:140px;flex-shrink:0}
-.genre-bar{flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden}
-.genre-fill{height:100%;border-radius:3px}
-.genre-pct{font-family:var(--mono);font-size:10px;color:var(--text3);width:30px;text-align:right}
-.pipeline-col{display:flex;flex-direction:column;gap:8px}
-.pipe-col-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:5px;margin-bottom:4px}
-.pipe-col-label{font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.pipe-count{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:10px}
-.pipe-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;cursor:grab;transition:border-color .2s,transform .1s,box-shadow .2s}
-.pipe-card:hover{border-color:var(--border2);transform:translateY(-1px)}
-.pipe-card.dragging{opacity:.5;cursor:grabbing}
-.pipe-card-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:5px}
-.pipe-card-meta{display:flex;gap:6px;flex-wrap:wrap}
-.pipe-tag{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;background:var(--bg4);color:var(--text3)}
-.pipe-tag.lang{background:rgba(58,158,244,0.1);color:var(--blue)}
-.pipe-tag.genre{background:rgba(232,244,58,0.08);color:rgba(232,244,58,0.7)}
-.pipe-tag.priority-high{background:rgba(244,58,110,0.12);color:var(--red)}
-.pipe-tag.priority-med{background:rgba(244,144,58,0.1);color:var(--accent5)}
-.drop-zone{min-height:40px;border-radius:6px;transition:background .2s,border .2s}
-.drop-zone.drag-over{background:rgba(232,244,58,0.05);border:1px dashed rgba(232,244,58,0.3)}
-.add-card-btn{width:100%;padding:8px;border-radius:6px;border:1px dashed var(--border2);background:transparent;color:var(--text3);font-family:var(--sans);font-size:12px;cursor:pointer;transition:all .2s}
-.add-card-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(232,244,58,0.04)}
-.ad-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px}
-.ad-platform-icon{width:32px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:10px;font-weight:800;flex-shrink:0}
-.ad-info{flex:1;min-width:0}
-.ad-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:3px}
-.ad-hook{font-size:11px;color:var(--text2);margin-bottom:6px;font-style:italic;line-height:1.4}
-.ad-meta{display:flex;gap:8px;flex-wrap:wrap}
-.ad-stat{font-family:var(--mono);font-size:10px;color:var(--text3)}
-.ad-stat span{color:var(--text2)}
-.spike-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px}
-.spike-hot{background:rgba(244,58,110,0.15);color:var(--red);border:1px solid rgba(244,58,110,0.3)}
-.spike-rising{background:rgba(244,144,58,0.12);color:var(--accent5);border:1px solid rgba(244,144,58,0.25)}
-.spike-stable{background:rgba(58,244,180,0.08);color:var(--green);border:1px solid rgba(58,244,180,0.2)}
-.task-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer}
-.task-row:last-child{border-bottom:none}
-.task-row:hover{background:rgba(255,255,255,0.01)}
-.task-check{width:16px;height:16px;border-radius:3px;border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
-.task-check.done{background:var(--green);border-color:var(--green)}
-.task-check.done::after{content:'✓';font-size:9px;color:var(--bg);font-weight:700}
-.task-text{flex:1;font-size:12px;color:var(--text)}
-.task-text.done{color:var(--text3);text-decoration:line-through}
-.task-owner{font-family:var(--mono);font-size:10px;color:var(--text3)}
-.task-due{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px}
-.due-overdue{background:rgba(244,58,110,0.12);color:var(--red)}
-.due-today{background:rgba(244,192,58,0.1);color:var(--amber)}
-.due-soon{background:rgba(58,244,180,0.08);color:var(--green)}
-.alert-feed-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-.alert-feed-item:last-child{border-bottom:none}
-.alert-icon{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px}
-.alert-content{flex:1}
-.alert-msg{font-size:12px;color:var(--text2);line-height:1.5}
-.alert-msg strong{color:var(--text);font-weight:500}
-.alert-time{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:2px}
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center}
-.modal-overlay.open{display:flex}
-.modal{background:var(--bg1);border:1px solid var(--border2);border-radius:10px;width:480px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:24px;animation:fadeIn .2s ease}
-.modal h2{font-family:var(--display);font-size:16px;font-weight:700;margin-bottom:16px}
-.form-row{margin-bottom:14px}
-.form-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
-.form-input,.form-select,.form-textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;transition:border-color .2s}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
-.form-select option{background:var(--bg2)}
-.form-textarea{resize:vertical;min-height:60px}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.full-col{grid-column:1/-1}
-.btn-row{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
-.btn{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:8px 18px;border-radius:5px;border:none;cursor:pointer;transition:all .15s}
-.btn-primary{background:var(--accent);color:var(--bg)}
-.btn-primary:hover{background:#d4e034}
-.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
-.btn-ghost:hover{background:var(--bg3)}
-.hook-item{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px}
-.hook-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
-.hook-val{font-size:12px;color:var(--text);font-weight:500}
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
-.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:10px 16px;font-size:12px;color:var(--text2);z-index:9999;animation:fadeIn .3s ease;display:none}
-.toast.show{display:block}
-@media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:1fr 1fr}.grid-2,.grid-2-3,.grid-3-2{grid-template-columns:1fr}}
-@media(max-width:600px){.grid-4,.grid-3{grid-template-columns:1fr}.plat-table th:nth-child(n+4),.plat-table td:nth-child(n+4){display:none}}
-</style>
-</head>
-<body>
 
-<div class="topbar">
-  <div class="logo"><div class="logo-dot"></div>FAST TV WAR ROOM</div>
-  <nav class="nav">
-    <button class="nav-btn active" onclick="goto('overview',this)">Overview</button>
-    <button class="nav-btn" onclick="goto('competitors',this)">Competitors</button>
-    <button class="nav-btn" onclick="goto('pipeline',this)">Pipeline</button>
-    <button class="nav-btn" onclick="goto('ads',this)">Ad Intel</button>
-    <button class="nav-btn" onclick="goto('tasks',this)">Tasks</button>
-    <button class="nav-btn" onclick="goto('launches',this)">Launches</button>
-  </nav>
-  <div class="topbar-right">
-    <div class="sync-badge connecting" id="sync-badge"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">CONNECTING</span></div>
-    <div class="time-display" id="clock">--:--:--</div>
-  </div>
-</div>
+function saveData(data) {
+  try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+  catch (e) { console.error('Save error:', e.message); }
+}
 
-<!-- OVERVIEW -->
-<div class="page active pad" id="page-overview">
-  <div class="section-header"><div class="section-title">Mission Control</div><div class="section-sub">India Micro-Drama Market · Weekly Pulse</div></div>
-  <div class="alert-strip">
-    <div class="label">⚡ Alerts</div>
-    <div class="alert-scroll">
-      <div class="alert-item">Kuku TV raised $85M Series C at $500M valuation — scaling AI studio + US expansion</div>
-      <div class="alert-item">DramaBox & ReelShort spiking India Meta/YouTube ad spend — CPMs rising</div>
-      <div class="alert-item">JioHotstar "Sparks" micro-format in pilot — if launched, changes distribution overnight</div>
-      <div class="alert-item">ByteDance Melolo entering SEA markets — India next</div>
-    </div>
-  </div>
-  <div class="grid-4">
-    <div class="kpi-card k-yellow"><div class="kpi-label">India Market 2026E</div><div class="kpi-val">$1.5B</div><div class="kpi-delta up">↑ 40–50% YoY</div></div>
-    <div class="kpi-card k-green"><div class="kpi-label">Platforms Tracked</div><div class="kpi-val">14</div><div class="kpi-delta neutral">+3 new in 2025</div></div>
-    <div class="kpi-card k-blue"><div class="kpi-label">Daily Episode Views</div><div class="kpi-val">120M+</div><div class="kpi-delta up">↑ Moj+Kuku+QuickTV</div></div>
-    <div class="kpi-card k-red"><div class="kpi-label">Top Threat Level</div><div class="kpi-val">HIGH</div><div class="kpi-delta down">Kuku TV + DramaBox</div></div>
-  </div>
-  <div class="grid-2">
-    <div class="card">
-      <div class="card-head"><div class="card-title">Genre momentum</div><div class="section-sub">2025–26 India</div></div>
-      <div class="card-body" id="genre-heat-ov"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="card-title">Winning hooks & archetypes</div></div>
-      <div class="card-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div class="hook-item"><div class="hook-label">Top archetype</div><div class="hook-val">Billionaire + small-town girl</div></div>
-          <div class="hook-item"><div class="hook-label">Rising fast</div><div class="hook-val">Revenge / betrayal arc</div></div>
-          <div class="hook-item"><div class="hook-label">Cliffhanger style</div><div class="hook-val">Identity reveal at ep end</div></div>
-          <div class="hook-item"><div class="hook-label">Opening hook</div><div class="hook-val">Confrontation in first 5s</div></div>
-          <div class="hook-item"><div class="hook-label">Episode format</div><div class="hook-val">60–90 eps × 60–90 sec</div></div>
-          <div class="hook-item"><div class="hook-label">Untapped segment</div><div class="hook-val">Women 18–35, romance-first</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-head"><div class="card-title">Fast TV opportunity radar</div></div>
-    <div class="card-body">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        <div style="background:rgba(232,244,58,0.05);border:1px solid rgba(232,244,58,0.15);border-radius:6px;padding:12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Greenlight Now</div><div style="font-size:12px;color:var(--text);line-height:1.6;">Female-skewed romance — 90%+ of platforms ignore women 18–35. Own this segment first.</div></div>
-        <div style="background:rgba(58,244,180,0.05);border:1px solid rgba(58,244,180,0.15);border-radius:6px;padding:12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Regional Moat</div><div style="font-size:12px;color:var(--text);line-height:1.6;">Bhojpuri, Marathi, Gujarati, Odia — virtually zero competition. First-mover wins loyalty.</div></div>
-        <div style="background:rgba(58,158,244,0.05);border:1px solid rgba(58,158,244,0.15);border-radius:6px;padding:12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Quality Wedge</div><div style="font-size:12px;color:var(--text);line-height:1.6;">Market flooded with volume-first content. Premium writing + hooks = differentiated positioning.</div></div>
-      </div>
-    </div>
-  </div>
-</div>
+let db = loadData();
 
-<!-- COMPETITORS -->
-<div class="page pad" id="page-competitors">
-  <div class="section-header"><div class="section-title">Competitor Intelligence</div><div class="section-sub">14 platforms tracked</div></div>
-  <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:0;overflow-x:auto;"><table class="plat-table"><thead><tr><th>Platform</th><th>Tier</th><th>Downloads / MAU</th><th>Languages</th><th>Model</th><th>Ad Signal</th><th>Engagement</th></tr></thead><tbody id="plat-tbody"></tbody></table></div></div>
-  <div class="grid-2">
-    <div class="card"><div class="card-head"><div class="card-title">Content strategy signals</div></div><div class="card-body"><div style="display:flex;flex-direction:column;gap:10px;"><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:3px;">KUKU TV PLAYBOOK</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">60–100 shows/month. Full season shot in ~20 days, 15–25 person crew. Audio IP from Kuku FM pre-validates storylines. Cost ₹10K–₹25K per minute.</div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--blue);margin-bottom:3px;">CHINESE PLAYER PLAYBOOK</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Adapt proven IP from global libraries. Heavy performance marketing (Meta + YouTube). Coin-based monetization. Dubbed content underperforms vs. local originals.</div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:3px;">BIG CO PLAYBOOK</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">MX Fatafat, Bullet, Kutingg leverage existing IP + talent networks. Brand integration baked into storylines. Distribution via parent platform base.</div></div></div></div></div>
-    <div class="card"><div class="card-head"><div class="card-title">Monetization landscape</div></div><div class="card-body"><div style="display:flex;flex-direction:column;gap:8px;"><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:12px;color:var(--text2);">Subscription (₹99–399/mo)</div><span class="tier-badge tier-dom">Kuku TV</span></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:12px;color:var(--text2);">Coin-per-episode ($10–25/series)</div><div style="display:flex;gap:4px;"><span class="tier-badge tier-intl">DramaBox</span><span class="tier-badge tier-intl">ReelShort</span></div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:12px;color:var(--text2);">Ad-supported free</div><div style="display:flex;gap:4px;"><span class="tier-badge tier-bigco">MX Fatafat</span><span class="tier-badge tier-local">QuickTV</span></div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;"><div style="font-size:12px;color:var(--text2);">Freemium + micro-tx</div><div style="display:flex;gap:4px;"><span class="tier-badge tier-local">ReelSaga</span><span class="tier-badge tier-local">Flick TV</span></div></div><div style="background:rgba(244,58,110,0.06);border:1px solid rgba(244,58,110,0.15);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--red);margin-bottom:3px;">INDIA INSIGHT</div><div style="font-size:12px;color:var(--text2);">Subscription flat-rate wins on retention. Hybrid (sub + brand co-production) is the only near-term path to unit economics. India ARPU is $0.031 RPD.</div></div></div></div></div>
-  </div>
-</div>
+// ── WebSocket broadcast ───────────────────────────────────────────────────────
+function broadcast(type, payload, skip) {
+  const msg = JSON.stringify({ type, payload });
+  wss.clients.forEach(c => {
+    if (c !== skip && c.readyState === WebSocket.OPEN) c.send(msg);
+  });
+}
 
-<!-- PIPELINE -->
-<div class="page pad" id="page-pipeline">
-  <div class="section-header" style="justify-content:space-between;">
-    <div style="display:flex;align-items:baseline;gap:12px;"><div class="section-title">Content Pipeline</div><div class="section-sub">Greenlight board · changes sync to all team members</div></div>
-    <button class="btn btn-primary" onclick="openModal('add-show')">+ Add Show</button>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;" id="pipeline-board"></div>
-</div>
+wss.on('connection', ws => {
+  // Send full state on connect
+  ws.send(JSON.stringify({ type: 'INIT', payload: db }));
 
-<!-- AD INTEL -->
-<div class="page pad" id="page-ads">
-  <div class="section-header"><div class="section-title">Ad Intelligence</div><div class="section-sub">Meta · YouTube · Active creatives tracked</div></div>
-  <div class="grid-4">
-    <div class="kpi-card k-red"><div class="kpi-label">Hottest Spender</div><div class="kpi-val" style="font-size:20px;">DramaBox</div><div class="kpi-delta down">↑ 240% MoM India</div></div>
-    <div class="kpi-card k-yellow"><div class="kpi-label">Active Ad Sets</div><div class="kpi-val">340+</div><div class="kpi-delta neutral">Across all platforms</div></div>
-    <div class="kpi-card k-blue"><div class="kpi-label">Top Hook Format</div><div class="kpi-val" style="font-size:18px;">Ep 1 Clip</div><div class="kpi-delta neutral">Identity reveal / slap</div></div>
-    <div class="kpi-card k-green"><div class="kpi-label">Avg Creatives/Show</div><div class="kpi-val">7–12</div><div class="kpi-delta up">Winners get 20+</div></div>
-  </div>
-  <div class="grid-2-3">
-    <div class="card"><div class="card-head"><div class="card-title">Platform ad intensity</div></div><div class="card-body" id="ad-intensity-list"></div></div>
-    <div class="card">
-      <div class="card-head">
-        <div class="card-title">Active ad creatives</div>
-        <select id="ad-filter" class="form-select" style="font-size:11px;padding:3px 8px;width:auto;" onchange="renderAds()">
-          <option value="all">All platforms</option>
-          <option>DramaBox</option><option>Kuku TV</option><option>ReelShort</option><option>QuickTV</option>
-        </select>
-      </div>
-      <div class="card-body" style="max-height:420px;overflow-y:auto;" id="ad-list"></div>
-    </div>
-  </div>
-  <div class="card"><div class="card-head"><div class="card-title">How to monitor Meta Ad Library</div></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:5px;">STEP 1 — SEARCH</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Go to facebook.com/ads/library. Search each competitor name. Filter by India, All Ads.</div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:5px;">STEP 2 — SPIKE SIGNAL</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Count active ads per platform weekly. A jump of 20+ new ads in 7 days on a single show = breakout or heavy launch push.</div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:5px;">STEP 3 — HOOK ANALYSIS</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Screenshot recurring creatives. Same opening line across 10+ ad variations = confirmed winner hook. Reverse-engineer for Fast TV scripts.</div></div></div></div></div>
-</div>
+  ws.on('message', raw => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
+    const { type, payload } = msg;
 
-<!-- TASKS -->
-<div class="page pad" id="page-tasks">
-  <div class="section-header" style="justify-content:space-between;">
-    <div style="display:flex;align-items:baseline;gap:12px;"><div class="section-title">Team Tasks & Alerts</div><div class="section-sub">Syncs across all team members in real time</div></div>
-    <button class="btn btn-primary" onclick="openModal('add-task')">+ Add Task</button>
-  </div>
-  <div class="grid-3-2">
-    <div>
-      <div class="card" style="margin-bottom:14px;"><div class="card-head"><div class="card-title">Open tasks</div><div class="section-sub" id="task-count">0 remaining</div></div><div class="card-body" style="max-height:400px;overflow-y:auto;" id="task-list"></div></div>
-      <div class="card"><div class="card-head"><div class="card-title">Completed</div></div><div class="card-body" id="task-done-list"></div></div>
-    </div>
-    <div class="card"><div class="card-head"><div class="card-title">Intelligence alerts feed</div></div><div class="card-body" id="alert-feed"></div></div>
-  </div>
-</div>
+    switch (type) {
 
-<!-- LAUNCHES -->
-<div class="page pad" id="page-launches">
-  <div class="section-header" style="justify-content:space-between;">
-    <div style="display:flex;align-items:baseline;gap:12px;"><div class="section-title">Competitor Launches</div><div class="section-sub">Syncs across all team members in real time</div></div>
-    <button class="btn btn-primary" onclick="openModal('add-launch')">+ Log New Drop</button>
-  </div>
-  <div class="grid-4" id="launch-kpis"></div>
-  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
-    <select class="form-select" id="launch-filter-platform" style="font-size:11px;padding:4px 10px;width:auto;" onchange="renderLaunchesView()"><option value="all">All platforms</option></select>
-    <select class="form-select" id="launch-filter-genre" style="font-size:11px;padding:4px 10px;width:auto;" onchange="renderLaunchesView()"><option value="all">All genres</option></select>
-    <select class="form-select" id="launch-filter-promo" style="font-size:11px;padding:4px 10px;width:auto;" onchange="renderLaunchesView()">
-      <option value="all">All promo levels</option><option>Heavy</option><option>Moderate</option><option>Organic</option>
-    </select>
-    <input class="form-input" id="launch-search" placeholder="Search title or hook..." style="font-size:12px;padding:4px 10px;width:220px;" oninput="renderLaunchesView()">
-  </div>
-  <div class="card" style="margin-bottom:16px;"><div class="card-body" style="padding:0;overflow-x:auto;"><table class="plat-table" style="min-width:900px;"><thead><tr><th style="width:36px;">#</th><th>Show title</th><th>Platform</th><th>Genre</th><th>Language</th><th>Opening hook</th><th>Episodes</th><th>Promo</th><th>Spotted</th><th>Logged by</th><th style="width:40px;"></th></tr></thead><tbody id="launches-tbody"></tbody></table></div></div>
-  <div class="grid-2">
-    <div class="card"><div class="card-head"><div class="card-title">Genre breakdown</div></div><div class="card-body" id="launch-genre-chart"></div></div>
-    <div class="card"><div class="card-head"><div class="card-title">Platform activity</div></div><div class="card-body" id="launch-platform-chart"></div></div>
-  </div>
-</div>
-
-<!-- MODALS -->
-<div class="modal-overlay" id="modal-add-show">
-  <div class="modal">
-    <h2>Add Show to Pipeline</h2>
-    <div class="two-col">
-      <div class="form-row full-col"><div class="form-label">Show title</div><input class="form-input" id="show-title" placeholder="e.g. Pyaar Ka Badla"></div>
-      <div class="form-row"><div class="form-label">Genre</div><select class="form-select" id="show-genre"><option>Romance / CEO</option><option>Crime / Revenge</option><option>Family drama</option><option>Workplace thriller</option><option>Historical</option><option>Supernatural</option><option>Comedy</option></select></div>
-      <div class="form-row"><div class="form-label">Language</div><select class="form-select" id="show-lang"><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Bengali</option><option>Kannada</option><option>Marathi</option><option>Bhojpuri</option><option>Gujarati</option></select></div>
-      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="show-stage"><option>Ideation</option><option>Greenlit</option><option>In Production</option><option>Post Production</option><option>Launched</option></select></div>
-      <div class="form-row"><div class="form-label">Priority</div><select class="form-select" id="show-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
-      <div class="form-row full-col"><div class="form-label">Logline</div><textarea class="form-textarea" id="show-logline" placeholder="One-line story hook..."></textarea></div>
-      <div class="form-row full-col"><div class="form-label">Google Doc / Script link</div><input class="form-input" id="show-gdoc" placeholder="Paste Google Doc link e.g. docs.google.com/..."></div>
-      <div class="form-row full-col"><div class="form-label">Paste script here (optional)</div><textarea class="form-textarea" id="show-script" placeholder="Paste full script text here — your team can read it directly from the pipeline card..." style="min-height:120px;"></textarea></div>
-    </div>
-    <div id="show-recommendation" style="display:none;margin-top:12px;border-radius:6px;padding:12px 14px;"></div>
-    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;align-items:center;">
-      <button class="btn btn-ghost" id="show-greenlight-btn" onclick="getGreenlightRec('show')" style="color:var(--accent);border-color:rgba(232,244,58,0.3);">✦ Get AI Greenlight Recommendation</button>
-      <div class="btn-row" style="margin-top:0;">
-        <button class="btn btn-ghost" onclick="closeModal('add-show')">Cancel</button>
-        <button class="btn btn-primary" onclick="addShow()">Add to Pipeline</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-add-task">
-  <div class="modal">
-    <h2>Add Task</h2>
-    <div class="form-row"><div class="form-label">Task</div><input class="form-input" id="task-input" placeholder="e.g. Check DramaBox Meta ads this week"></div>
-    <div class="form-row"><div class="form-label">Owner</div><input class="form-input" id="task-owner" placeholder="e.g. Priya, Rahul, Me"></div>
-    <div class="form-row"><div class="form-label">Due</div><select class="form-select" id="task-due"><option value="today">Today</option><option value="this-week">This week</option><option value="overdue">Overdue</option></select></div>
-    <div class="btn-row"><button class="btn btn-ghost" onclick="closeModal('add-task')">Cancel</button><button class="btn btn-primary" onclick="addTask()">Add Task</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-add-launch">
-  <div class="modal">
-    <h2>Log Competitor Show Drop</h2>
-    <div class="two-col">
-      <div class="form-row full-col"><div class="form-label">Show title *</div><input class="form-input" id="launch-title" placeholder="e.g. CEO Ka Raaz"></div>
-      <div class="form-row"><div class="form-label">Platform *</div><select class="form-select" id="launch-platform"><option>Kuku TV</option><option>QuickTV</option><option>DramaBox</option><option>ReelShort</option><option>MX Fatafat</option><option>Bullet (Zee)</option><option>ReelSaga</option><option>Flick TV</option><option>Story TV</option><option>GoodShort</option><option>Kutingg</option><option>Chai Shots</option><option>Viralo</option><option>JioHotstar Sparks</option><option>Other</option></select></div>
-      <div class="form-row"><div class="form-label">Genre</div><select class="form-select" id="launch-genre"><option>Romance / CEO</option><option>Crime / Revenge</option><option>Family drama</option><option>Workplace thriller</option><option>Historical</option><option>Supernatural</option><option>Comedy</option><option>Youth / Gen Z</option><option>Action</option><option>Other</option></select></div>
-      <div class="form-row"><div class="form-label">Language</div><select class="form-select" id="launch-lang"><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Bengali</option><option>Kannada</option><option>Marathi</option><option>Bhojpuri</option><option>Gujarati</option><option>English</option><option>Other</option></select></div>
-      <div class="form-row"><div class="form-label">No. of episodes</div><input class="form-input" id="launch-eps" placeholder="e.g. 80" type="number"></div>
-      <div class="form-row"><div class="form-label">Promo level</div><select class="form-select" id="launch-promo"><option>Heavy</option><option>Moderate</option><option>Organic</option></select></div>
-      <div class="form-row"><div class="form-label">Where spotted</div><select class="form-select" id="launch-source"><option>Meta Ads</option><option>YouTube Ads</option><option>Instagram Reel</option><option>YouTube Channel</option><option>App Store</option><option>Google Alert</option><option>Manual check</option></select></div>
-      <div class="form-row"><div class="form-label">Logged by</div><input class="form-input" id="launch-logger" placeholder="Your name"></div>
-      <div class="form-row full-col"><div class="form-label">Opening hook / logline</div><textarea class="form-textarea" id="launch-hook" placeholder="What's the opening line or key premise of episode 1?"></textarea></div>
-      <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="launch-notes" placeholder="Cliffhanger style, production quality, ad count, anything notable..."></textarea></div>
-    </div>
-    <div class="btn-row"><button class="btn btn-ghost" onclick="closeModal('add-launch')">Cancel</button><button class="btn btn-primary" onclick="addLaunch()">Log Drop</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-edit-card">
-  <div class="modal">
-    <h2>Edit Show</h2>
-    <input type="hidden" id="edit-stage">
-    <input type="hidden" id="edit-idx">
-    <div class="two-col">
-      <div class="form-row full-col"><div class="form-label">Show title</div><input class="form-input" id="edit-title" placeholder="e.g. Pyaar Ka Badla"></div>
-      <div class="form-row"><div class="form-label">Genre</div><select class="form-select" id="edit-genre"><option>Romance / CEO</option><option>Crime / Revenge</option><option>Family drama</option><option>Workplace thriller</option><option>Historical</option><option>Supernatural</option><option>Comedy</option></select></div>
-      <div class="form-row"><div class="form-label">Language</div><select class="form-select" id="edit-lang"><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Bengali</option><option>Kannada</option><option>Marathi</option><option>Bhojpuri</option><option>Gujarati</option></select></div>
-      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="edit-stage-select"><option>Ideation</option><option>Greenlit</option><option>In Production</option><option>Post Production</option><option>Launched</option></select></div>
-      <div class="form-row"><div class="form-label">Priority</div><select class="form-select" id="edit-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
-      <div class="form-row full-col"><div class="form-label">Logline</div><textarea class="form-textarea" id="edit-logline" placeholder="One-line story hook..."></textarea></div>
-      <div class="form-row full-col"><div class="form-label">Google Doc / Script link</div><input class="form-input" id="edit-gdoc" placeholder="Paste Google Doc link..."></div>
-      <div class="form-row full-col"><div class="form-label">Script text</div><textarea class="form-textarea" id="edit-script" placeholder="Paste full script here..." style="min-height:120px;"></textarea></div>
-    </div>
-    <div id="edit-recommendation" style="display:none;margin-top:12px;border-radius:6px;padding:12px 14px;"></div>
-    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;align-items:center;">
-      <button class="btn btn-ghost" onclick="getGreenlightRec('edit')" style="color:var(--accent);border-color:rgba(232,244,58,0.3);">✦ Get AI Greenlight Recommendation</button>
-      <div class="btn-row" style="margin-top:0;">
-        <button class="btn btn-ghost" onclick="closeModal('edit-card')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveEditCard()">Save Changes</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="modal-view-script">
-  <div class="modal" style="width:680px;max-width:96vw;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <h2 id="script-modal-title">Script</h2>
-      <button class="btn btn-ghost" onclick="closeModal('view-script')" style="padding:4px 12px;">Close</button>
-    </div>
-    <div id="script-modal-gdoc" style="margin-bottom:12px;display:none;">
-      <div class="form-label" style="margin-bottom:4px;">Google Doc link</div>
-      <a id="script-gdoc-link" href="#" target="_blank" style="font-size:12px;color:var(--blue);word-break:break-all;"></a>
-    </div>
-    <div id="script-modal-body" style="background:var(--bg3);border-radius:6px;padding:16px;max-height:60vh;overflow-y:auto;font-size:12px;color:var(--text2);line-height:1.8;white-space:pre-wrap;font-family:var(--mono);"></div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-// ── Static data ───────────────────────────────────────────────────────────────
-const PLATFORMS = [
-  { id:'kuku', name:'Kuku TV', icon:'KK', color:'#1a2a1a', tc:'#3af4b4', tier:'dom', tierLabel:'Dominant', mau:'37M MAU', downloads:'88M+ cumulative', langs:'Hindi · Telugu · Tamil · Bengali', model:'Sub ₹99–399/mo', ad:92, eng:88 },
-  { id:'quicktv', name:'QuickTV', icon:'QT', color:'#1a2218', tc:'#a8f43a', tier:'local', tierLabel:'Local', mau:'~15M via Moj', downloads:'8.5M', langs:'Hindi · Tamil · Punjabi', model:'Ad-supported free', ad:70, eng:82 },
-  { id:'dramabox', name:'DramaBox', icon:'DB', color:'#2a1a0e', tc:'#f4903a', tier:'intl', tierLabel:'Global', mau:'2.8M India', downloads:'10Cr+ global', langs:'Hindi · English · Tamil', model:'Coins ($10–25/series)', ad:95, eng:78 },
-  { id:'reelshort', name:'ReelShort', icon:'RL', color:'#2a1a0e', tc:'#f4c03a', tier:'intl', tierLabel:'Global', mau:'1.1M India', downloads:'Large global', langs:'Hindi · English', model:'Coin per episode', ad:88, eng:72 },
-  { id:'mxfatafat', name:'MX Fatafat', icon:'MX', color:'#0e1a2a', tc:'#3a9ef4', tier:'bigco', tierLabel:'Big Co', mau:'Large (MX base)', downloads:'MX ecosystem', langs:'Hindi · Regional', model:'Ad-supported free', ad:65, eng:60 },
-  { id:'bullet', name:'Bullet (Zee)', icon:'BL', color:'#2a1e0e', tc:'#f4c03a', tier:'bigco', tierLabel:'Big Co', mau:'ZEE5 base', downloads:'ZEE5 ecosystem', langs:'Hindi · Regional', model:'Freemium + sub', ad:55, eng:50 },
-  { id:'reelsaga', name:'ReelSaga', icon:'RS', color:'#1e1a2a', tc:'#c09ef4', tier:'local', tierLabel:'Local', mau:'Growing', downloads:'Early stage', langs:'Hindi', model:'Free + ads + micro-tx', ad:35, eng:42 },
-  { id:'flicktv', name:'Flick TV', icon:'FT', color:'#0e1e1a', tc:'#3af4b4', tier:'local', tierLabel:'Local', mau:'Early stage', downloads:'300K+', langs:'Hindi · English', model:'Freemium', ad:28, eng:38 },
-  { id:'storytv', name:'Story TV', icon:'ST', color:'#1e1a2a', tc:'#c09ef4', tier:'local', tierLabel:'Local', mau:'Growing', downloads:'Growing', langs:'Hindi', model:'Freemium', ad:40, eng:52 },
-  { id:'goodshort', name:'GoodShort', icon:'GS', color:'#1e1a2a', tc:'#c09ef4', tier:'intl', tierLabel:'Global', mau:'India entering', downloads:'Global scale', langs:'Hindi · English', model:'Coins', ad:60, eng:55 },
-  { id:'kutingg', name:'Kutingg', icon:'KG', color:'#2a1a0e', tc:'#f4903a', tier:'bigco', tierLabel:'Big Co', mau:'Moderate', downloads:'Moderate', langs:'Hindi', model:'Freemium + paywall', ad:45, eng:48 },
-  { id:'chai', name:'Chai Shots', icon:'CS', color:'#0e1e14', tc:'#3af4b4', tier:'local', tierLabel:'Local', mau:'Niche', downloads:'Niche', langs:'Telugu', model:'Freemium', ad:20, eng:28 },
-  { id:'viralo', name:'Viralo', icon:'VR', color:'#0e1e1a', tc:'#3af4d4', tier:'new', tierLabel:'New', mau:'Early stage', downloads:'Early stage', langs:'Hindi', model:'Freemium', ad:15, eng:18 },
-  { id:'jio', name:'JioHotstar Sparks', icon:'JH', color:'#2a0e14', tc:'#f43a6e', tier:'bigco', tierLabel:'Big Co (Testing)', mau:'Massive potential', downloads:'JioHotstar base', langs:'Hindi · Regional', model:'Bundled subscription', ad:30, eng:35 },
-];
-const GENRES = [
-  {name:'Romance / CEO',pct:92,color:'#f43a6e'},{name:'Crime / Revenge',pct:78,color:'#f4903a'},
-  {name:'Family drama',pct:70,color:'#f4c03a'},{name:'Workplace thriller',pct:62,color:'#e8f43a'},
-  {name:'Historical',pct:48,color:'#3af4b4'},{name:'Supernatural',pct:40,color:'#3a9ef4'},
-  {name:'Youth / Gen Z',pct:35,color:'#c09ef4'},{name:'Comedy',pct:28,color:'#f49e3a'},
-];
-const AD_DATA = [
-  {platform:'DramaBox',title:'CEO Ka Raaz',hook:'He married me but never looked at me. Then he saw who I really was...',channel:'Meta + YouTube',creatives:18,spike:'hot'},
-  {platform:'DramaBox',title:'Badla Mera Haq',hook:'You humiliated me in front of everyone. Now watch who I become.',channel:'Meta',creatives:14,spike:'hot'},
-  {platform:'Kuku TV',title:'Anari Pati',hook:'He acted useless but ran the whole empire from the shadows.',channel:'YouTube',creatives:11,spike:'rising'},
-  {platform:'ReelShort',title:'Married the Enemy',hook:"I thought he was my enemy. Turns out he was protecting me all along.",channel:'Meta',creatives:16,spike:'hot'},
-  {platform:'Kuku TV',title:'Daksh IAS',hook:'From chai seller to IAS topper. The system never saw him coming.',channel:'YouTube + Meta',creatives:9,spike:'rising'},
-  {platform:'QuickTV',title:'Pyaar Dhoka Pyaar',hook:'She loved him with everything. He used her for one reason.',channel:'YouTube',creatives:7,spike:'stable'},
-  {platform:'ReelShort',title:'Alpha CEO',hook:'He never smiled at anyone. Until she walked into his boardroom.',channel:'Meta',creatives:13,spike:'hot'},
-  {platform:'GoodShort',title:'Revenge Bride',hook:'At the altar she smiled. Nobody knew what she had planned.',channel:'Meta',creatives:10,spike:'rising'},
-];
-const ALERT_FEED = [
-  {color:'#f43a6e',msg:'<strong>BREAKOUT:</strong> DramaBox "CEO Ka Raaz" — 18 active ad creatives in 7 days. Hook: identity reveal at ep 3.',time:'2 hrs ago'},
-  {color:'#f4903a',msg:'<strong>AD SPIKE:</strong> ReelShort India Meta spend up ~40% this week. Likely new season launch for "Alpha CEO".',time:'6 hrs ago'},
-  {color:'#e8f43a',msg:'<strong>MARKET MOVE:</strong> Kuku TV announced AI dubbing studio — will double regional language output.',time:'1 day ago'},
-  {color:'#3a9ef4',msg:'<strong>NEW ENTRANT:</strong> ByteDance Melolo expanding into South Asia. India launch estimated Q3 2026.',time:'2 days ago'},
-  {color:'#3af4b4',msg:'<strong>OPPORTUNITY:</strong> No platform running ads targeting women 18–35 in Hindi romance genre.',time:'3 days ago'},
-  {color:'#c09ef4',msg:'<strong>FUNDING:</strong> Flick TV ($2.3M) and ReelSaga ($2.1M) both funded. Expect content acceleration in Q2.',time:'4 days ago'},
-];
-const STAGE_COLORS = {'Ideation':'rgba(58,158,244,0.15)','Greenlit':'rgba(232,244,58,0.12)','In Production':'rgba(244,144,58,0.12)','Post Production':'rgba(192,158,244,0.12)','Launched':'rgba(58,244,180,0.12)'};
-const STAGE_TC = {'Ideation':'#3a9ef4','Greenlit':'#e8f43a','In Production':'#f4903a','Post Production':'#c09ef4','Launched':'#3af4b4'};
-
-// ── App state (populated from server via WS) ──────────────────────────────────
-let db = { tasks:[], pipeline:{}, launches:[], idCounters:{tasks:1,launches:1} };
-
-// ── WebSocket ─────────────────────────────────────────────────────────────────
-let ws, reconnectTimer;
-function connectWS() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  setSyncStatus('connecting');
-
-  ws.onopen = () => setSyncStatus('connected');
-
-  ws.onmessage = e => {
-    const { type, payload } = JSON.parse(e.data);
-    switch(type) {
-      case 'INIT':
-        db = payload;
-        renderAll();
-        break;
-      case 'ADD_TASK':
-        db.tasks.unshift(payload);
-        renderTasks();
-        showToast(`New task added: "${payload.text.slice(0,40)}..."`);
-        break;
-      case 'TOGGLE_TASK': {
-        const t = db.tasks.find(x => x.id === payload.id);
-        if(t) { t.done = payload.done; renderTasks(); }
+      // ── TASKS ──
+      case 'ADD_TASK': {
+        const task = { ...payload, id: db.idCounters.tasks++ };
+        db.tasks.unshift(task);
+        saveData(db);
+        broadcast('ADD_TASK', task, ws);
+        ws.send(JSON.stringify({ type: 'TASK_ID', payload: { tempId: payload.id, realId: task.id } }));
         break;
       }
-      case 'PIPELINE_UPDATE':
-        db.pipeline = payload;
-        renderPipeline();
-        showToast('Pipeline updated by a team member');
+      case 'TOGGLE_TASK': {
+        const t = db.tasks.find(x => x.id === payload.id);
+        if (t) { t.done = !t.done; saveData(db); broadcast('TOGGLE_TASK', { id: t.id, done: t.done }, ws); }
         break;
-      case 'ADD_LAUNCH':
-        db.launches.unshift(payload);
-        renderLaunchesView();
-        showToast(`New drop logged: ${payload.title} (${payload.platform})`);
+      }
+
+      // ── PIPELINE ──
+      case 'MOVE_CARD': {
+        const { fromStage, toStage, idx } = payload;
+        if (!db.pipeline[fromStage] || idx < 0 || idx >= db.pipeline[fromStage].length) break;
+        const [card] = db.pipeline[fromStage].splice(idx, 1);
+        db.pipeline[toStage] = db.pipeline[toStage] || [];
+        db.pipeline[toStage].push(card);
+        saveData(db);
+        broadcast('PIPELINE_UPDATE', db.pipeline, ws);
+        ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
         break;
-      case 'DELETE_LAUNCH':
+      }
+      case 'ADD_CARD': {
+        const { stage, card } = payload;
+        db.pipeline[stage] = db.pipeline[stage] || [];
+        db.pipeline[stage].push(card);
+        saveData(db);
+        broadcast('PIPELINE_UPDATE', db.pipeline, ws);
+        ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
+        break;
+      }
+      case 'EDIT_CARD': {
+        const { stage, idx, card } = payload;
+        if (db.pipeline[stage] && db.pipeline[stage][idx]) {
+          db.pipeline[stage][idx] = { ...db.pipeline[stage][idx], ...card };
+          saveData(db);
+          broadcast('PIPELINE_UPDATE', db.pipeline, ws);
+          ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
+        }
+        break;
+      }
+      case 'DELETE_CARD': {
+        const { stage, idx } = payload;
+        if (db.pipeline[stage] && db.pipeline[stage][idx] !== undefined) {
+          db.pipeline[stage].splice(idx, 1);
+          saveData(db);
+          broadcast('PIPELINE_UPDATE', db.pipeline, ws);
+          ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
+        }
+        break;
+      }
+
+      // ── LAUNCHES ──
+      case 'ADD_LAUNCH': {
+        const launch = { ...payload, id: db.idCounters.launches++ };
+        db.launches.unshift(launch);
+        saveData(db);
+        broadcast('ADD_LAUNCH', launch, ws);
+        ws.send(JSON.stringify({ type: 'LAUNCH_ID', payload: { tempId: payload.id, realId: launch.id } }));
+        break;
+      }
+      case 'DELETE_LAUNCH': {
         db.launches = db.launches.filter(l => l.id !== payload.id);
-        renderLaunchesView();
+        saveData(db);
+        broadcast('DELETE_LAUNCH', { id: payload.id }, ws);
         break;
-      case 'CLEAR_LAUNCHES':
+      }
+      case 'CLEAR_LAUNCHES': {
         db.launches = [];
-        renderLaunchesView();
+        saveData(db);
+        broadcast('CLEAR_LAUNCHES', {}, ws);
         break;
+      }
+
+      default: break;
+    }
+  });
+
+  ws.on('error', e => console.error('WS error:', e.message));
+});
+
+// ── Static files ──────────────────────────────────────────────────────────────
+app.use(express.json());
+app.use(express.static(__dirname));
+
+// ── AI Greenlight endpoint ────────────────────────────────────────────────────
+app.post('/api/greenlight', (req, res) => {
+  const { title, genre, lang, logline } = req.body;
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.Anthropic_API_Key || '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';
+
+  const prompt = `You are a content strategy expert for Fast TV, an Indian micro-drama streaming platform. Analyse this show concept against the current India micro-drama market and give a greenlight recommendation.
+
+SHOW DETAILS:
+Title: ${title}
+Genre: ${genre}
+Language: ${lang}
+Logline: ${logline || 'Not provided'}
+
+CURRENT INDIA MICRO-DRAMA MARKET CONTEXT:
+- Top performing genres: Romance/CEO (92%), Crime/Revenge (78%), Family drama (70%)
+- Winning archetypes: Billionaire + small-town girl, revenge arc, identity reveal
+- Most platforms (90%+) skew male — women 18-35 is a huge gap nobody is filling
+- Kuku TV dominates with Hindi + South languages at 60-100 shows/month
+- Chinese players (DramaBox, ReelShort) flooding Romance/CEO with heavy ad spend
+- Regional languages (Bhojpuri, Marathi, Gujarati, Odia) are virtually untapped
+- Opening hook must hit in first 5 seconds — confrontation or identity reveal works best
+- Episode format: 60-90 episodes x 60-90 seconds each
+- Fast TV is positioned as premium quality micro-drama targeting underserved segments
+
+Give a JSON response with this exact structure (no markdown, no backticks, just raw JSON):
+{"verdict":"GREENLIGHT" or "CAUTION" or "PASS","score":0-100,"headline":"one punchy line max 10 words","reasons":["reason 1","reason 2","reason 3"],"risks":["risk 1","risk 2"],"hook_suggestion":"suggest a stronger opening line for episode 1","competitors":"which competitor is doing something similar and how Fast TV should differentiate in one sentence"}`;
+
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 2000,
+    messages: [{ role: 'user', content: prompt }]
+  });
+
+  const options = {
+    hostname: 'api.anthropic.com',
+    path: '/v1/messages',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Length': Buffer.byteLength(body)
     }
   };
 
-  ws.onclose = () => {
-    setSyncStatus('disconnected');
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connectWS, 3000);
-  };
-
-  ws.onerror = () => ws.close();
-}
-
-function send(type, payload) {
-  if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type,payload}));
-}
-
-function setSyncStatus(s) {
-  const badge = document.getElementById('sync-badge');
-  const dot = document.getElementById('sync-dot');
-  const label = document.getElementById('sync-label');
-  badge.className = 'sync-badge ' + s;
-  dot.style.background = s==='connected'?'var(--green)':s==='connecting'?'var(--amber)':'var(--red)';
-  label.textContent = s==='connected'?'LIVE SYNC':s==='connecting'?'CONNECTING':'RECONNECTING';
-}
-
-// ── Clock ─────────────────────────────────────────────────────────────────────
-setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }, 1000);
-
-// ── Nav ───────────────────────────────────────────────────────────────────────
-function goto(page, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
-  btn.classList.add('active');
-}
-
-// ── Modals ────────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById('modal-'+id).classList.add('open'); }
-function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
-}
-
-// ── Render all ────────────────────────────────────────────────────────────────
-function renderAll() {
-  renderGenreHeat();
-  renderPlatformTable();
-  renderAdIntensity();
-  renderAds();
-  renderPipeline();
-  renderTasks();
-  renderLaunchesView();
-  renderAlertFeed();
-}
-
-// ── Genre heat ────────────────────────────────────────────────────────────────
-function renderGenreHeat() {
-  const el = document.getElementById('genre-heat-ov');
-  if(!el) return;
-  el.innerHTML = GENRES.map(g=>`<div class="genre-row"><div class="genre-name">${g.name}</div><div class="genre-bar"><div class="genre-fill" style="width:${g.pct}%;background:${g.color};"></div></div><div class="genre-pct">${g.pct}%</div></div>`).join('');
-}
-
-// ── Platform table ────────────────────────────────────────────────────────────
-function renderPlatformTable() {
-  const tbody = document.getElementById('plat-tbody');
-  if(!tbody) return;
-  const tc = t => ({dom:'tier-dom',intl:'tier-intl',local:'tier-local',bigco:'tier-bigco',new:'tier-new'}[t]||'tier-new');
-  tbody.innerHTML = PLATFORMS.map(p=>`<tr><td><div class="plat-name-cell"><div class="plat-icon" style="background:${p.color};color:${p.tc};">${p.icon}</div><div><div class="pn">${p.name}</div><div class="ps">${p.mau}</div></div></div></td><td><span class="tier-badge ${tc(p.tier)}">${p.tierLabel}</span></td><td><span class="mono-sm">${p.downloads}</span></td><td><span class="mono-sm" style="font-size:10px;">${p.langs}</span></td><td><span class="mono-sm" style="font-size:10px;">${p.model}</span></td><td><div class="signal-bar"><div class="bar-bg"><div class="bar-fg" style="width:${p.ad}%;background:#f43a6e;"></div></div><div class="bar-val">${p.ad}</div></div></td><td><div class="signal-bar"><div class="bar-bg"><div class="bar-fg" style="width:${p.eng}%;background:#3af4b4;"></div></div><div class="bar-val">${p.eng}</div></div></td></tr>`).join('');
-}
-
-// ── Ad intensity ──────────────────────────────────────────────────────────────
-function renderAdIntensity() {
-  const el = document.getElementById('ad-intensity-list');
-  if(!el) return;
-  const sorted = [...PLATFORMS].sort((a,b)=>b.ad-a.ad).slice(0,8);
-  el.innerHTML = sorted.map(p=>`<div class="genre-row"><div class="genre-name" style="font-size:12px;">${p.name}</div><div class="genre-bar"><div class="genre-fill" style="width:${p.ad}%;background:${p.ad>80?'#f43a6e':p.ad>55?'#f4903a':'#3a9ef4'};"></div></div><div class="genre-pct">${p.ad}</div></div>`).join('');
-}
-
-// ── Ads ───────────────────────────────────────────────────────────────────────
-function renderAds() {
-  const filter = document.getElementById('ad-filter')?.value||'all';
-  const el = document.getElementById('ad-list');
-  if(!el) return;
-  const filtered = filter==='all' ? AD_DATA : AD_DATA.filter(a=>a.platform===filter);
-  el.innerHTML = filtered.map(a=>{
-    const p = PLATFORMS.find(pl=>pl.name===a.platform)||{icon:a.platform.slice(0,2).toUpperCase(),color:'#1a1a2a',tc:'#8888ff'};
-    const sc = a.spike==='hot'?'spike-hot':a.spike==='rising'?'spike-rising':'spike-stable';
-    const sl = a.spike==='hot'?'🔴 HOT':a.spike==='rising'?'↑ RISING':'— STABLE';
-    return `<div class="ad-card"><div class="ad-platform-icon" style="background:${p.color};color:${p.tc};">${p.icon}</div><div class="ad-info"><div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;"><div class="ad-title">${a.title}</div><span class="spike-badge ${sc}">${sl}</span></div><div class="ad-hook">"${a.hook}"</div><div class="ad-meta"><div class="ad-stat">Platform: <span>${a.platform}</span></div><div class="ad-stat">Channel: <span>${a.channel}</span></div><div class="ad-stat">Creatives: <span>${a.creatives}</span></div></div></div></div>`;
-  }).join('');
-}
-
-// ── Pipeline ──────────────────────────────────────────────────────────────────
-let dragSrc=null, dragSrcIdx=null;
-function renderPipeline() {
-  const board = document.getElementById('pipeline-board');
-  if(!board) return;
-  const stages = ['Ideation','Greenlit','In Production','Post Production','Launched'];
-  board.innerHTML = stages.map(stage=>{
-    const items = db.pipeline[stage]||[];
-    return `<div>
-      <div class="pipe-col-head" style="background:${STAGE_COLORS[stage]};"><div class="pipe-col-label" style="color:${STAGE_TC[stage]};">${stage}</div><div class="pipe-count" style="color:${STAGE_TC[stage]};">${items.length}</div></div>
-      <div class="pipeline-col drop-zone" id="col-${stage.replace(/\s/g,'-')}" ondragover="dragOver(event)" ondrop="dropCard(event,'${stage}')">
-        ${items.map((item,idx)=>`<div class="pipe-card" draggable="true" ondragstart="dragStart(event,'${stage}',${idx})">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-            <div class="pipe-card-title" style="margin-bottom:0;">${item.title}</div>
-            <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px;">
-              <button onclick="openEditCard(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;" title="Edit">✏️</button>
-              <button onclick="deleteCard(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid rgba(244,58,110,0.2);background:transparent;color:var(--red);cursor:pointer;" title="Delete">×</button>
-            </div>
-          </div>
-          ${item.logline?`<div style="font-size:11px;color:var(--text3);margin-bottom:5px;line-height:1.4;">${item.logline}</div>`:''}
-          <div class="pipe-card-meta"><span class="pipe-tag genre">${item.genre}</span><span class="pipe-tag lang">${item.lang}</span><span class="pipe-tag priority-${item.priority.toLowerCase()==='high'?'high':'med'}">${item.priority}</span></div>
-          ${(item.script||item.gdoc)?`<div style="margin-top:8px;display:flex;gap:6px;">
-            ${item.script?`<button onclick="viewScript(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(232,244,58,0.3);background:rgba(232,244,58,0.06);color:var(--accent);cursor:pointer;">📄 Read Script</button>`:''}
-            ${item.gdoc?`<a href="${item.gdoc}" target="_blank" onclick="event.stopPropagation()" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(58,158,244,0.3);background:rgba(58,158,244,0.06);color:var(--blue);text-decoration:none;">🔗 Google Doc</a>`:''}
-          </div>`:''}
-        </div>`).join('')}
-      </div>
-      <div style="margin-top:8px;"><button class="add-card-btn" onclick="quickAddToStage('${stage}')">+ Add to ${stage}</button></div>
-    </div>`;
-  }).join('');
-}
-
-function dragStart(e,stage,idx) { dragSrc=stage; dragSrcIdx=idx; e.currentTarget.classList.add('dragging'); }
-function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function dropCard(e,targetStage) {
-  e.preventDefault();
-  document.querySelectorAll('.drop-zone').forEach(z=>z.classList.remove('drag-over'));
-  document.querySelectorAll('.pipe-card').forEach(c=>c.classList.remove('dragging'));
-  if(dragSrc===null||dragSrcIdx===null) return;
-  send('MOVE_CARD',{fromStage:dragSrc,toStage:targetStage,idx:dragSrcIdx});
-  dragSrc=null; dragSrcIdx=null;
-}
-
-function openEditCard(e, stage, idx) {
-  e.stopPropagation();
-  const item = (db.pipeline[stage]||[])[idx];
-  if(!item) return;
-  document.getElementById('edit-stage').value = stage;
-  document.getElementById('edit-idx').value = idx;
-  document.getElementById('edit-title').value = item.title || '';
-  document.getElementById('edit-genre').value = item.genre || 'Romance / CEO';
-  document.getElementById('edit-lang').value = item.lang || 'Hindi';
-  document.getElementById('edit-stage-select').value = stage;
-  document.getElementById('edit-priority').value = item.priority || 'High';
-  document.getElementById('edit-logline').value = item.logline || '';
-  document.getElementById('edit-gdoc').value = item.gdoc || '';
-  document.getElementById('edit-script').value = item.script || '';
-  openModal('edit-card');
-}
-
-function saveEditCard() {
-  const oldStage = document.getElementById('edit-stage').value;
-  const idx = parseInt(document.getElementById('edit-idx').value);
-  const newStage = document.getElementById('edit-stage-select').value;
-  const card = {
-    title: document.getElementById('edit-title').value.trim(),
-    genre: document.getElementById('edit-genre').value,
-    lang: document.getElementById('edit-lang').value,
-    priority: document.getElementById('edit-priority').value,
-    logline: document.getElementById('edit-logline').value.trim(),
-    gdoc: document.getElementById('edit-gdoc').value.trim(),
-    script: document.getElementById('edit-script').value.trim(),
-  };
-  if(!card.title) return;
-  if(newStage !== oldStage) {
-    // Move to new stage with updated data
-    send('MOVE_CARD', { fromStage: oldStage, toStage: newStage, idx });
-    // Small delay then edit the last item in new stage
-    setTimeout(() => {
-      const newIdx = (db.pipeline[newStage]||[]).length - 1;
-      send('EDIT_CARD', { stage: newStage, idx: newIdx, card });
-    }, 300);
-  } else {
-    send('EDIT_CARD', { stage: oldStage, idx, card });
-  }
-  closeModal('edit-card');
-  showToast('Show updated successfully');
-}
-
-function deleteCard(e, stage, idx) {
-  e.stopPropagation();
-  if(!confirm('Delete this show from the pipeline?')) return;
-  send('DELETE_CARD', { stage, idx });
-  showToast('Show removed from pipeline');
-}
-
-function addShow() {
-  const title = document.getElementById('show-title').value.trim();
-  if(!title) return;
-  send('ADD_CARD',{stage:document.getElementById('show-stage').value, card:{
-    title,
-    genre:document.getElementById('show-genre').value,
-    lang:document.getElementById('show-lang').value,
-    priority:document.getElementById('show-priority').value,
-    logline:document.getElementById('show-logline').value.trim(),
-    gdoc:document.getElementById('show-gdoc').value.trim(),
-    script:document.getElementById('show-script').value.trim(),
-  }});
-  closeModal('add-show');
-  ['show-title','show-logline','show-gdoc','show-script'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
-
-function viewScript(e, stage, idx) {
-  e.stopPropagation();
-  const item = (db.pipeline[stage]||[])[idx];
-  if(!item) return;
-  document.getElementById('script-modal-title').textContent = item.title;
-  const gdocEl = document.getElementById('script-modal-gdoc');
-  const gdocLink = document.getElementById('script-gdoc-link');
-  if(item.gdoc) { gdocEl.style.display='block'; gdocLink.href=item.gdoc; gdocLink.textContent=item.gdoc; }
-  else { gdocEl.style.display='none'; }
-  document.getElementById('script-modal-body').textContent = item.script || 'No script text added.';
-  openModal('view-script');
-}
-
-// ── Tasks ─────────────────────────────────────────────────────────────────────
-function renderTasks() {
-  const open=db.tasks.filter(t=>!t.done), done=db.tasks.filter(t=>t.done);
-  const tl=document.getElementById('task-list'), dl=document.getElementById('task-done-list'), tc=document.getElementById('task-count');
-  if(tc) tc.textContent=open.length+' remaining';
-  if(tl) tl.innerHTML=open.map(taskHTML).join('')||'<div style="font-size:12px;color:var(--text3);padding:8px 0;">All caught up.</div>';
-  if(dl) dl.innerHTML=done.slice(0,5).map(taskHTML).join('')||'<div style="font-size:12px;color:var(--text3);padding:8px 0;">Nothing completed yet.</div>';
-}
-function taskHTML(t) {
-  const dc=t.due==='overdue'?'due-overdue':t.due==='today'?'due-today':'due-soon';
-  const dl=t.due==='overdue'?'Overdue':t.due==='today'?'Today':'This week';
-  return `<div class="task-row" onclick="toggleTask(${t.id})"><div class="task-check ${t.done?'done':''}"></div><div class="task-text ${t.done?'done':''}">${t.text}</div><div class="task-owner">${t.owner}</div><div class="task-due ${dc}">${dl}</div></div>`;
-}
-function toggleTask(id) { send('TOGGLE_TASK',{id}); }
-function addTask() {
-  const text=document.getElementById('task-input').value.trim();
-  if(!text) return;
-  send('ADD_TASK',{text,owner:document.getElementById('task-owner').value||'Me',due:document.getElementById('task-due').value,done:false});
-  closeModal('add-task');
-  document.getElementById('task-input').value='';
-  document.getElementById('task-owner').value='';
-}
-
-// ── Alert feed ────────────────────────────────────────────────────────────────
-function renderAlertFeed() {
-  const el=document.getElementById('alert-feed');
-  if(!el) return;
-  el.innerHTML=ALERT_FEED.map(a=>`<div class="alert-feed-item"><div class="alert-icon" style="background:${a.color};"></div><div class="alert-content"><div class="alert-msg">${a.msg}</div><div class="alert-time">${a.time}</div></div></div>`).join('');
-}
-
-// ── Launches ──────────────────────────────────────────────────────────────────
-function renderLaunchesView() {
-  const pf=document.getElementById('launch-filter-platform')?.value||'all';
-  const gf=document.getElementById('launch-filter-genre')?.value||'all';
-  const prom=document.getElementById('launch-filter-promo')?.value||'all';
-  const q=(document.getElementById('launch-search')?.value||'').toLowerCase();
-
-  // populate filters
-  const pfEl=document.getElementById('launch-filter-platform');
-  const gfEl=document.getElementById('launch-filter-genre');
-  if(pfEl){const plats=[...new Set(db.launches.map(l=>l.platform))].sort();pfEl.innerHTML='<option value="all">All platforms</option>'+plats.map(p=>`<option${p===pf?' selected':''}>${p}</option>`).join('')}
-  if(gfEl){const gens=[...new Set(db.launches.map(l=>l.genre))].sort();gfEl.innerHTML='<option value="all">All genres</option>'+gens.map(g=>`<option${g===gf?' selected':''}>${g}</option>`).join('')}
-
-  const filtered=db.launches.filter(l=>(pf==='all'||l.platform===pf)&&(gf==='all'||l.genre===gf)&&(prom==='all'||l.promo===prom)&&(!q||l.title.toLowerCase().includes(q)||(l.hook||'').toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
-
-  // KPIs
-  const kpiEl=document.getElementById('launch-kpis');
-  if(kpiEl){
-    const heavy=db.launches.filter(l=>l.promo==='Heavy').length;
-    const platCnt={};db.launches.forEach(l=>{platCnt[l.platform]=(platCnt[l.platform]||0)+1;});
-    const topPlat=Object.entries(platCnt).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
-    const genCnt={};db.launches.forEach(l=>{genCnt[l.genre]=(genCnt[l.genre]||0)+1;});
-    const topGen=Object.entries(genCnt).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
-    kpiEl.innerHTML=`<div class="kpi-card k-yellow"><div class="kpi-label">Total drops logged</div><div class="kpi-val">${db.launches.length}</div><div class="kpi-delta neutral">Across all platforms</div></div><div class="kpi-card k-red"><div class="kpi-label">Heavy promo pushes</div><div class="kpi-val">${heavy}</div><div class="kpi-delta down">Watch these closely</div></div><div class="kpi-card k-green"><div class="kpi-label">Most active platform</div><div class="kpi-val" style="font-size:16px;">${topPlat}</div><div class="kpi-delta neutral">${platCnt[topPlat]||0} shows</div></div><div class="kpi-card k-blue"><div class="kpi-label">Top genre spotted</div><div class="kpi-val" style="font-size:14px;">${topGen}</div><div class="kpi-delta neutral">${genCnt[topGen]||0} shows</div></div>`;
-  }
-
-  // Table
-  const tbody=document.getElementById('launches-tbody');
-  if(tbody){
-    tbody.innerHTML=filtered.length===0?`<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:24px;font-size:12px;">No drops logged yet. Hit "+ Log New Drop" to add one.</td></tr>`:filtered.map((l,i)=>{
-      const pd=PLATFORMS.find(p=>p.name===l.platform);
-      const ic=pd?pd.icon:l.platform.slice(0,2).toUpperCase(),bg=pd?pd.color:'#1a1a2a',tc2=pd?pd.tc:'#aaaaff';
-      const sc=l.promo==='Heavy'?'spike-hot':l.promo==='Moderate'?'spike-rising':'spike-stable';
-      return `<tr><td style="font-family:var(--mono);font-size:10px;color:var(--text3);">${i+1}</td><td><div style="font-size:12px;font-weight:500;color:var(--text);">${l.title}</div>${l.notes?`<div style="font-size:10px;color:var(--text3);margin-top:2px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.notes}</div>`:''}</td><td><div style="display:flex;align-items:center;gap:7px;"><div style="width:22px;height:22px;border-radius:4px;background:${bg};color:${tc2};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;font-family:var(--display);flex-shrink:0;">${ic}</div><span style="font-size:11px;color:var(--text2);">${l.platform}</span></div></td><td><span class="pipe-tag genre" style="font-size:9px;">${l.genre}</span></td><td><span class="pipe-tag lang" style="font-size:9px;">${l.lang}</span></td><td style="max-width:180px;"><div style="font-size:11px;color:var(--text2);font-style:italic;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">"${l.hook||'—'}"</div></td><td><span class="mono-sm">${l.eps?l.eps+' eps':'—'}</span></td><td><span class="spike-badge ${sc}">${l.promo}</span></td><td><div style="font-family:var(--mono);font-size:10px;color:var(--text3);">${l.date}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:1px;">${l.source}</div></td><td style="font-family:var(--mono);font-size:10px;color:var(--text3);">${l.logger}</td><td><button onclick="deleteLaunch(${l.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;border-radius:3px;" title="Delete">×</button></td></tr>`;
-    }).join('');
-  }
-
-  // Charts
-  const gc=document.getElementById('launch-genre-chart');
-  if(gc){const c={};db.launches.forEach(l=>{c[l.genre]=(c[l.genre]||0)+1;});const s=Object.entries(c).sort((a,b)=>b[1]-a[1]);const mx=s[0]?.[1]||1;const cols=['#f43a6e','#f4903a','#f4c03a','#e8f43a','#3af4b4','#3a9ef4','#c09ef4','#f49e3a'];gc.innerHTML=s.map(([g,n],i)=>`<div class="genre-row"><div class="genre-name" style="width:160px;font-size:11px;">${g}</div><div class="genre-bar"><div class="genre-fill" style="width:${Math.round(n/mx*100)}%;background:${cols[i%cols.length]};"></div></div><div class="genre-pct">${n}</div></div>`).join('')||'<div style="font-size:12px;color:var(--text3);">No data yet.</div>';}
-  const pc=document.getElementById('launch-platform-chart');
-  if(pc){const c={};db.launches.forEach(l=>{c[l.platform]=(c[l.platform]||0)+1;});const s=Object.entries(c).sort((a,b)=>b[1]-a[1]);const mx=s[0]?.[1]||1;pc.innerHTML=s.map(([p,n])=>{const pd=PLATFORMS.find(pl=>pl.name===p);const col=pd?pd.tc:'#8888ff';return `<div class="genre-row"><div class="genre-name" style="width:160px;font-size:11px;">${p}</div><div class="genre-bar"><div class="genre-fill" style="width:${Math.round(n/mx*100)}%;background:${col};"></div></div><div class="genre-pct">${n}</div></div>`;}).join('')||'<div style="font-size:12px;color:var(--text3);">No data yet.</div>';}
-}
-
-function addLaunch() {
-  const title=document.getElementById('launch-title').value.trim();
-  if(!title) return;
-  send('ADD_LAUNCH',{title,platform:document.getElementById('launch-platform').value,genre:document.getElementById('launch-genre').value,lang:document.getElementById('launch-lang').value,eps:parseInt(document.getElementById('launch-eps').value)||null,promo:document.getElementById('launch-promo').value,source:document.getElementById('launch-source').value,hook:document.getElementById('launch-hook').value.trim(),notes:document.getElementById('launch-notes').value.trim(),logger:document.getElementById('launch-logger').value.trim()||'Me',date:new Date().toISOString().slice(0,10)});
-  closeModal('add-launch');
-  ['launch-title','launch-eps','launch-hook','launch-notes','launch-logger'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
-
-function deleteLaunch(id) {
-  if(!confirm('Remove this entry?')) return;
-  send('DELETE_LAUNCH',{id});
-}
-
-// ── AI Greenlight Recommendation ──────────────────────────────────────────────
-async function getGreenlightRec(prefix) {
-  const title = document.getElementById(prefix+'-title').value.trim();
-  const genre = document.getElementById(prefix+'-genre').value;
-  const lang = document.getElementById(prefix+'-lang').value;
-  const logline = document.getElementById(prefix+'-logline').value.trim();
-  const recEl = document.getElementById(prefix+'-recommendation');
-  if(!title) { alert('Please enter a show title first.'); return; }
-  recEl.style.display = 'block';
-  recEl.style.background = 'rgba(232,244,58,0.04)';
-  recEl.style.border = '1px solid rgba(232,244,58,0.15)';
-  recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:6px;">✦ AI GREENLIGHT ANALYSIS</div><div style="font-size:12px;color:var(--text3);">Analysing against India micro-drama market trends...</div>`;
-  try {
-    const response = await fetch('/api/greenlight', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, genre, lang, logline })
+  const apiReq = https.request(options, apiRes => {
+    let data = '';
+    apiRes.on('data', chunk => { data += chunk; });
+    apiRes.on('end', () => {
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.error) {
+          return res.status(500).json({ error: parsed.error.message || 'API error' });
+        }
+        const text = (parsed.content || []).map(c => c.text || '').join('').trim();
+        // Extract JSON from response - find first { to last }
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start === -1 || end === -1) {
+          return res.status(500).json({ error: 'No JSON in response', raw: text });
+        }
+        const jsonStr = text.substring(start, end + 1);
+        const rec = JSON.parse(jsonStr);
+        res.json(rec);
+      } catch(e) {
+        console.error('Parse error:', e.message);
+        res.status(500).json({ error: e.message });
+      }
     });
-    const rec = await response.json();
-    if(rec.error) throw new Error(rec.error);
-    const vColor = rec.verdict==='GREENLIGHT'?'#3af4b4':rec.verdict==='CAUTION'?'#f4c03a':'#f43a6e';
-    const vBg = rec.verdict==='GREENLIGHT'?'rgba(58,244,180,0.08)':rec.verdict==='CAUTION'?'rgba(244,192,58,0.08)':'rgba(244,58,110,0.08)';
-    const vBorder = rec.verdict==='GREENLIGHT'?'rgba(58,244,180,0.2)':rec.verdict==='CAUTION'?'rgba(244,192,58,0.2)':'rgba(244,58,110,0.2)';
-    recEl.style.background = vBg;
-    recEl.style.border = `1px solid ${vBorder}`;
-    recEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="font-family:var(--display);font-size:16px;font-weight:800;color:${vColor};">${rec.verdict}</div>
-        <div style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vBorder};padding:2px 8px;border-radius:3px;">${rec.score}/100</div>
-        <div style="font-size:12px;color:var(--text2);font-style:italic;">${rec.headline}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--green);text-transform:uppercase;margin-bottom:4px;">Why it works</div>
-          ${(rec.reasons||[]).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;gap:5px;"><span style="color:var(--green);flex-shrink:0;">+</span>${r}</div>`).join('')}
-        </div>
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--red);text-transform:uppercase;margin-bottom:4px;">Watch out for</div>
-          ${(rec.risks||[]).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;gap:5px;"><span style="color:var(--red);flex-shrink:0;">−</span>${r}</div>`).join('')}
-        </div>
-      </div>
-      <div style="background:rgba(232,244,58,0.05);border-radius:4px;padding:8px 10px;margin-bottom:8px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;margin-bottom:3px;">Suggested ep 1 hook</div>
-        <div style="font-size:11px;color:var(--text2);font-style:italic;">"${rec.hook_suggestion}"</div>
-      </div>
-      <div style="background:rgba(58,158,244,0.05);border-radius:4px;padding:8px 10px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--blue);text-transform:uppercase;margin-bottom:3px;">Competitive positioning</div>
-        <div style="font-size:11px;color:var(--text2);">${rec.competitors}</div>
-      </div>`;
-  } catch(err) {
-    recEl.style.background = 'rgba(244,58,110,0.06)';
-    recEl.style.border = '1px solid rgba(244,58,110,0.2)';
-    recEl.innerHTML = `<div style="font-size:12px;color:var(--red);">Error: ${err.message}</div>`;
-  }
-}
+  });
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-connectWS();
-</script>
-</body>
-</html>
+  apiReq.on('error', e => {
+    console.error('API request error:', e.message);
+    res.status(500).json({ error: e.message });
+  });
+
+  apiReq.write(body);
+  apiReq.end();
+});
+
+app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
+server.listen(PORT, () => console.log(`Fast TV War Room running on port ${PORT} - v2`));
