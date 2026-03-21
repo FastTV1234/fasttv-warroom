@@ -840,7 +840,7 @@ async function getGreenlightRec(prefix) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        max_tokens: 2000,
         messages: [{ role: 'user', content: `You are a content strategy expert for Fast TV, an Indian micro-drama streaming platform. Analyse this show concept against the current India micro-drama market and give a greenlight recommendation.
 
 SHOW DETAILS:
@@ -860,8 +860,8 @@ CURRENT INDIA MICRO-DRAMA MARKET CONTEXT:
 - Episode format: 60-90 episodes x 60-90 seconds each
 - Fast TV is positioned as premium quality micro-drama targeting underserved segments
 
-Give a JSON response with this exact structure (no markdown, no backticks, just raw JSON):
-{"verdict":"GREENLIGHT" or "CAUTION" or "PASS","score":0-100,"headline":"one punchy line max 10 words","reasons":["reason 1","reason 2","reason 3"],"risks":["risk 1","risk 2"],"hook_suggestion":"suggest a stronger opening line for episode 1","competitors":"which competitor is doing something similar and how Fast TV should differentiate in one sentence"}` }]
+Give a JSON response, no markdown, no backticks, raw JSON only:
+{"verdict":"GREENLIGHT","score":85,"headline":"short line","reasons":["r1","r2","r3"],"risks":["r1","r2"],"hook_suggestion":"opening line","competitors":"one sentence"}` }]
       })
     });
     const data = await response.json();
