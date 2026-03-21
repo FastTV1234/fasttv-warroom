@@ -329,6 +329,8 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="show-stage"><option>Ideation</option><option>Greenlit</option><option>In Production</option><option>Post Production</option><option>Launched</option></select></div>
       <div class="form-row"><div class="form-label">Priority</div><select class="form-select" id="show-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
       <div class="form-row full-col"><div class="form-label">Logline</div><textarea class="form-textarea" id="show-logline" placeholder="One-line story hook..."></textarea></div>
+      <div class="form-row full-col"><div class="form-label">Google Doc / Script link</div><input class="form-input" id="show-gdoc" placeholder="Paste Google Doc link e.g. docs.google.com/..."></div>
+      <div class="form-row full-col"><div class="form-label">Paste script here (optional)</div><textarea class="form-textarea" id="show-script" placeholder="Paste full script text here — your team can read it directly from the pipeline card..." style="min-height:120px;"></textarea></div>
     </div>
     <div class="btn-row"><button class="btn btn-ghost" onclick="closeModal('add-show')">Cancel</button><button class="btn btn-primary" onclick="addShow()">Add to Pipeline</button></div>
   </div>
@@ -360,6 +362,20 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="launch-notes" placeholder="Cliffhanger style, production quality, ad count, anything notable..."></textarea></div>
     </div>
     <div class="btn-row"><button class="btn btn-ghost" onclick="closeModal('add-launch')">Cancel</button><button class="btn btn-primary" onclick="addLaunch()">Log Drop</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-view-script">
+  <div class="modal" style="width:680px;max-width:96vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 id="script-modal-title">Script</h2>
+      <button class="btn btn-ghost" onclick="closeModal('view-script')" style="padding:4px 12px;">Close</button>
+    </div>
+    <div id="script-modal-gdoc" style="margin-bottom:12px;display:none;">
+      <div class="form-label" style="margin-bottom:4px;">Google Doc link</div>
+      <a id="script-gdoc-link" href="#" target="_blank" style="font-size:12px;color:var(--blue);word-break:break-all;"></a>
+    </div>
+    <div id="script-modal-body" style="background:var(--bg3);border-radius:6px;padding:16px;max-height:60vh;overflow-y:auto;font-size:12px;color:var(--text2);line-height:1.8;white-space:pre-wrap;font-family:var(--mono);"></div>
   </div>
 </div>
 
@@ -571,6 +587,10 @@ function renderPipeline() {
           <div class="pipe-card-title">${item.title}</div>
           ${item.logline?`<div style="font-size:11px;color:var(--text3);margin-bottom:5px;line-height:1.4;">${item.logline}</div>`:''}
           <div class="pipe-card-meta"><span class="pipe-tag genre">${item.genre}</span><span class="pipe-tag lang">${item.lang}</span><span class="pipe-tag priority-${item.priority.toLowerCase()==='high'?'high':'med'}">${item.priority}</span></div>
+          ${(item.script||item.gdoc)?`<div style="margin-top:8px;display:flex;gap:6px;">
+            ${item.script?`<button onclick="viewScript(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(232,244,58,0.3);background:rgba(232,244,58,0.06);color:var(--accent);cursor:pointer;">📄 Read Script</button>`:''}
+            ${item.gdoc?`<a href="${item.gdoc}" target="_blank" onclick="event.stopPropagation()" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(58,158,244,0.3);background:rgba(58,158,244,0.06);color:var(--blue);text-decoration:none;">🔗 Google Doc</a>`:''}
+          </div>`:''}
         </div>`).join('')}
       </div>
       <div style="margin-top:8px;"><button class="add-card-btn" onclick="quickAddToStage('${stage}')">+ Add to ${stage}</button></div>
@@ -594,10 +614,30 @@ function quickAddToStage(stage) { document.getElementById('show-stage').value=st
 function addShow() {
   const title = document.getElementById('show-title').value.trim();
   if(!title) return;
-  send('ADD_CARD',{stage:document.getElementById('show-stage').value, card:{title,genre:document.getElementById('show-genre').value,lang:document.getElementById('show-lang').value,priority:document.getElementById('show-priority').value,logline:document.getElementById('show-logline').value.trim()}});
+  send('ADD_CARD',{stage:document.getElementById('show-stage').value, card:{
+    title,
+    genre:document.getElementById('show-genre').value,
+    lang:document.getElementById('show-lang').value,
+    priority:document.getElementById('show-priority').value,
+    logline:document.getElementById('show-logline').value.trim(),
+    gdoc:document.getElementById('show-gdoc').value.trim(),
+    script:document.getElementById('show-script').value.trim(),
+  }});
   closeModal('add-show');
-  document.getElementById('show-title').value='';
-  document.getElementById('show-logline').value='';
+  ['show-title','show-logline','show-gdoc','show-script'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+}
+
+function viewScript(e, stage, idx) {
+  e.stopPropagation();
+  const item = (db.pipeline[stage]||[])[idx];
+  if(!item) return;
+  document.getElementById('script-modal-title').textContent = item.title;
+  const gdocEl = document.getElementById('script-modal-gdoc');
+  const gdocLink = document.getElementById('script-gdoc-link');
+  if(item.gdoc) { gdocEl.style.display='block'; gdocLink.href=item.gdoc; gdocLink.textContent=item.gdoc; }
+  else { gdocEl.style.display='none'; }
+  document.getElementById('script-modal-body').textContent = item.script || 'No script text added.';
+  openModal('view-script');
 }
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
