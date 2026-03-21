@@ -1,5 +1,6 @@
-const express = require('express');
+onst express = require('express');
 const http = require('http');
+const https = require('https');
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
@@ -177,12 +178,12 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // ── AI Greenlight endpoint ────────────────────────────────────────────────────
-app.post('/api/greenlight', async (req, res) => {
+app.post('/api/greenlight', (req, res) => {
   const { title, genre, lang, logline } = req.body;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
-  try {
-    const prompt = `You are a content strategy expert for Fast TV, an Indian micro-drama streaming platform. Analyse this show concept against the current India micro-drama market and give a greenlight recommendation.
+
+  const prompt = `You are a content strategy expert for Fast TV, an Indian micro-drama streaming platform. Analyse this show concept against the current India micro-drama market and give a greenlight recommendation.
 
 SHOW DETAILS:
 Title: ${title}
@@ -204,28 +205,48 @@ CURRENT INDIA MICRO-DRAMA MARKET CONTEXT:
 Give a JSON response with this exact structure (no markdown, no backticks, just raw JSON):
 {"verdict":"GREENLIGHT" or "CAUTION" or "PASS","score":0-100,"headline":"one punchy line max 10 words","reasons":["reason 1","reason 2","reason 3"],"risks":["risk 1","risk 2"],"hook_suggestion":"suggest a stronger opening line for episode 1","competitors":"which competitor is doing something similar and how Fast TV should differentiate in one sentence"}`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1000,
+    messages: [{ role: 'user', content: prompt }]
+  });
+
+  const options = {
+    hostname: 'api.anthropic.com',
+    path: '/v1/messages',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Length': Buffer.byteLength(body)
+    }
+  };
+
+  const apiReq = https.request(options, apiRes => {
+    let data = '';
+    apiRes.on('data', chunk => { data += chunk; });
+    apiRes.on('end', () => {
+      try {
+        const parsed = JSON.parse(data);
+        const text = (parsed.content || []).map(c => c.text || '').join('');
+        const clean = text.replace(/```json|```/g, '').trim();
+        const rec = JSON.parse(clean);
+        res.json(rec);
+      } catch(e) {
+        console.error('Parse error:', e.message, data);
+        res.status(500).json({ error: 'Failed to parse AI response' });
+      }
     });
-    const data = await response.json();
-    const text = data.content?.map(c => c.text || '').join('') || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const rec = JSON.parse(clean);
-    res.json(rec);
-  } catch (err) {
-    console.error('Greenlight error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+  });
+
+  apiReq.on('error', e => {
+    console.error('API request error:', e.message);
+    res.status(500).json({ error: e.message });
+  });
+
+  apiReq.write(body);
+  apiReq.end();
 });
 
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
