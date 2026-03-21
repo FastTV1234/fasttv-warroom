@@ -173,7 +173,61 @@ wss.on('connection', ws => {
 });
 
 // ── Static files ──────────────────────────────────────────────────────────────
+app.use(express.json());
 app.use(express.static(__dirname));
+
+// ── AI Greenlight endpoint ────────────────────────────────────────────────────
+app.post('/api/greenlight', async (req, res) => {
+  const { title, genre, lang, logline } = req.body;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
+  try {
+    const prompt = `You are a content strategy expert for Fast TV, an Indian micro-drama streaming platform. Analyse this show concept against the current India micro-drama market and give a greenlight recommendation.
+
+SHOW DETAILS:
+Title: ${title}
+Genre: ${genre}
+Language: ${lang}
+Logline: ${logline || 'Not provided'}
+
+CURRENT INDIA MICRO-DRAMA MARKET CONTEXT:
+- Top performing genres: Romance/CEO (92%), Crime/Revenge (78%), Family drama (70%)
+- Winning archetypes: Billionaire + small-town girl, revenge arc, identity reveal
+- Most platforms (90%+) skew male — women 18-35 is a huge gap nobody is filling
+- Kuku TV dominates with Hindi + South languages at 60-100 shows/month
+- Chinese players (DramaBox, ReelShort) flooding Romance/CEO with heavy ad spend
+- Regional languages (Bhojpuri, Marathi, Gujarati, Odia) are virtually untapped
+- Opening hook must hit in first 5 seconds — confrontation or identity reveal works best
+- Episode format: 60-90 episodes x 60-90 seconds each
+- Fast TV is positioned as premium quality micro-drama targeting underserved segments
+
+Give a JSON response with this exact structure (no markdown, no backticks, just raw JSON):
+{"verdict":"GREENLIGHT" or "CAUTION" or "PASS","score":0-100,"headline":"one punchy line max 10 words","reasons":["reason 1","reason 2","reason 3"],"risks":["risk 1","risk 2"],"hook_suggestion":"suggest a stronger opening line for episode 1","competitors":"which competitor is doing something similar and how Fast TV should differentiate in one sentence"}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = data.content?.map(c => c.text || '').join('') || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const rec = JSON.parse(clean);
+    res.json(rec);
+  } catch (err) {
+    console.error('Greenlight error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 server.listen(PORT, () => console.log(`Fast TV War Room running on port ${PORT}`));
