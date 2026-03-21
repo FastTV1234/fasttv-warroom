@@ -173,7 +173,7 @@ wss.on('connection', ws => {
 });
 
 // ── Static files ──────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.use(express.static(__dirname));
+app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 server.listen(PORT, () => console.log(`Fast TV War Room running on port ${PORT}`));
