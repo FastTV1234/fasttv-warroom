@@ -122,6 +122,26 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
         break;
       }
+      case 'EDIT_CARD': {
+        const { stage, idx, card } = payload;
+        if (db.pipeline[stage] && db.pipeline[stage][idx]) {
+          db.pipeline[stage][idx] = { ...db.pipeline[stage][idx], ...card };
+          saveData(db);
+          broadcast('PIPELINE_UPDATE', db.pipeline, ws);
+          ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
+        }
+        break;
+      }
+      case 'DELETE_CARD': {
+        const { stage, idx } = payload;
+        if (db.pipeline[stage] && db.pipeline[stage][idx] !== undefined) {
+          db.pipeline[stage].splice(idx, 1);
+          saveData(db);
+          broadcast('PIPELINE_UPDATE', db.pipeline, ws);
+          ws.send(JSON.stringify({ type: 'PIPELINE_UPDATE', payload: db.pipeline }));
+        }
+        break;
+      }
 
       // ── LAUNCHES ──
       case 'ADD_LAUNCH': {
@@ -153,7 +173,7 @@ wss.on('connection', ws => {
 });
 
 // ── Static files ──────────────────────────────────────────────────────────────
-app.use(express.static(__dirname));
-app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 server.listen(PORT, () => console.log(`Fast TV War Room running on port ${PORT}`));
