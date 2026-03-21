@@ -206,7 +206,7 @@ Give a JSON response with this exact structure (no markdown, no backticks, just 
 
   const body = JSON.stringify({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1000,
+    max_tokens: 2000,
     messages: [{ role: 'user', content: prompt }]
   });
 
@@ -228,13 +228,22 @@ Give a JSON response with this exact structure (no markdown, no backticks, just 
     apiRes.on('end', () => {
       try {
         const parsed = JSON.parse(data);
-        const text = (parsed.content || []).map(c => c.text || '').join('');
-        const clean = text.replace(/```json|```/g, '').trim();
-        const rec = JSON.parse(clean);
+        if (parsed.error) {
+          return res.status(500).json({ error: parsed.error.message || 'API error' });
+        }
+        const text = (parsed.content || []).map(c => c.text || '').join('').trim();
+        // Extract JSON from response - find first { to last }
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start === -1 || end === -1) {
+          return res.status(500).json({ error: 'No JSON in response', raw: text });
+        }
+        const jsonStr = text.substring(start, end + 1);
+        const rec = JSON.parse(jsonStr);
         res.json(rec);
       } catch(e) {
-        console.error('Parse error:', e.message, data);
-        res.status(500).json({ error: 'Failed to parse AI response' });
+        console.error('Parse error:', e.message);
+        res.status(500).json({ error: e.message });
       }
     });
   });
