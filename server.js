@@ -175,7 +175,15 @@ wss.on('connection', ws => {
 
 // ── Static files ──────────────────────────────────────────────────────────────
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(__dirname, {
+  index: 'index.html',
+  dotfiles: 'ignore',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('server.js') || filePath.endsWith('data.json') || filePath.endsWith('package.json')) {
+      res.status(403).end();
+    }
+  }
+}));
 
 // ── AI Greenlight endpoint ────────────────────────────────────────────────────
 app.post('/api/greenlight', (req, res) => {
