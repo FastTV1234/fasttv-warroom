@@ -180,7 +180,7 @@ app.use(express.static(__dirname));
 // ── AI Greenlight endpoint ────────────────────────────────────────────────────
 app.post('/api/greenlight', (req, res) => {
   const { title, genre, lang, logline } = req.body;
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.Anthropic_API_Key || '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';
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.Anthropic_API_Key || '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';
 
   const prompt = `You are a content strategy expert for Fast TV, an Indian micro-drama streaming platform. Analyse this show concept against the current India micro-drama market and give a greenlight recommendation.
 
