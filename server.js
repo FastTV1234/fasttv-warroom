@@ -1,4 +1,4 @@
-onst express = require('express');
+const express = require('express');
 const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
@@ -251,4 +251,4 @@ Give a JSON response with this exact structure (no markdown, no backticks, just 
 
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-server.listen(PORT, () => console.log(`Fast TV War Room running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Fast TV War Room running on port ${PORT} - v2`));
