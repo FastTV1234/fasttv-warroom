@@ -866,7 +866,15 @@ Give a JSON response, no markdown, no backticks, raw JSON only:
     });
     const data = await response.json();
     const text = (data.content||[]).map(c=>c.text||'').join('');
-    const rec = JSON.parse(text.replace(/```json|```/g,'').trim());
+    let rec;
+    try {
+      rec = JSON.parse(text.replace(/```json|```/g,'').trim());
+    } catch(parseErr) {
+      recEl.style.background = 'rgba(58,158,244,0.06)';
+      recEl.style.border = '1px solid rgba(58,158,244,0.2)';
+      recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--blue);margin-bottom:6px;">RAW RESPONSE (parse failed)</div><div style="font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;">${text}</div>`;
+      return;
+    }
     const vColor = rec.verdict==='GREENLIGHT'?'#3af4b4':rec.verdict==='CAUTION'?'#f4c03a':'#f43a6e';
     const vBg = rec.verdict==='GREENLIGHT'?'rgba(58,244,180,0.08)':rec.verdict==='CAUTION'?'rgba(244,192,58,0.08)':'rgba(244,58,110,0.08)';
     const vBorder = rec.verdict==='GREENLIGHT'?'rgba(58,244,180,0.2)':rec.verdict==='CAUTION'?'rgba(244,192,58,0.2)':'rgba(244,58,110,0.2)';
