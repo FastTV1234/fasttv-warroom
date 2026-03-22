@@ -687,15 +687,13 @@ async function fetchPlatformNews() {
   ];
   for(const platform of platforms_to_track) {
     try {
-      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(platform + ' micro drama India')}&hl=en-IN&gl=IN&ceid=IN:en`;
-      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=1`;
-      const resp = await fetch(proxyUrl);
-      const data = await resp.json();
-      if(data.items && data.items.length > 0) {
+      const resp = await fetch(`/api/news?q=${encodeURIComponent(platform + ' micro drama India')}`);
+      const items = await resp.json();
+      if(items && items.length > 0) {
         platformNewsCache[platform] = {
-          title: data.items[0].title,
-          link: data.items[0].link,
-          date: new Date(data.items[0].pubDate)
+          title: items[0].title,
+          link: items[0].link,
+          date: new Date(items[0].pubDate)
         };
       }
     } catch(e) { /* skip */ }
@@ -1351,35 +1349,27 @@ async function fetchLiveNews() {
 
   const queries = [
     'Kuku TV micro drama',
-    'DramaBox India',
+    'DramaBox India short drama',
     'Story TV microdrama India',
     'ReelShort India',
     'micro drama India 2026',
-    'QuickTV short drama'
+    'QuickTV short drama India'
   ];
 
   const allItems = [];
-
   for(const q of queries) {
     try {
-      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
-      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=3`;
-      const resp = await fetch(proxyUrl);
-      const data = await resp.json();
-      if(data.items) {
-        data.items.forEach(item => {
-          allItems.push({
-            title: item.title,
-            link: item.link,
-            date: new Date(item.pubDate),
-            source: item.author || 'News'
-          });
-        });
-      }
-    } catch(e) { /* skip failed query */ }
+      const resp = await fetch(`/api/news?q=${encodeURIComponent(q)}`);
+      const items = await resp.json();
+      items.forEach(item => allItems.push({
+        title: item.title,
+        link: item.link,
+        date: new Date(item.pubDate),
+        source: item.source || 'News'
+      }));
+    } catch(e) { /* skip */ }
   }
 
-  // Sort by date, deduplicate by title
   const seen = new Set();
   const unique = allItems
     .sort((a,b) => b.date - a.date)
@@ -1449,40 +1439,32 @@ async function fetchYouTubeShows() {
   const newShows = [];
   for(const ch of YT_CHANNELS) {
     try {
-      const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`;
-      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=10`;
-      const resp = await fetch(proxyUrl);
-      const data = await resp.json();
-      if(data.items) {
-        data.items.forEach(item => {
-          const existing = detectedShows.find(s => s.link === item.link);
-          if(!existing) {
-            const genre = classifyGenre(item.title, item.description);
-            const show = {
-              id: Date.now() + Math.random(),
-              platform: ch.name,
-              title: item.title,
-              genre,
-              date: item.pubDate ? new Date(item.pubDate).toISOString().slice(0,10) : new Date().toISOString().slice(0,10),
-              link: item.link,
-              isNew: true
-            };
-            newShows.push(show);
-            detectedShows.unshift(show);
-          }
-        });
-      }
+      const resp = await fetch(`/api/youtube?channelId=${ch.id}`);
+      const items = await resp.json();
+      items.forEach(item => {
+        const existing = detectedShows.find(s => s.link === item.link);
+        if(!existing) {
+          const genre = classifyGenre(item.title, '');
+          const show = {
+            id: Date.now() + Math.random(),
+            platform: ch.name,
+            title: item.title,
+            genre,
+            date: item.pubDate ? new Date(item.pubDate).toISOString().slice(0,10) : new Date().toISOString().slice(0,10),
+            link: item.link,
+            isNew: true
+          };
+          newShows.push(show);
+          detectedShows.unshift(show);
+        }
+      });
     } catch(e) { /* skip */ }
   }
   saveDetectedShows();
   if(newShows.length > 0) {
     updateGenreChartFromYT();
-    // Add to launches tab automatically
     newShows.forEach(show => {
-      const alreadyLogged = db.launches && db.launches.find(l => l.title === show.title && l.platform === show.platform);
-      if(!alreadyLogged && show.title.length > 5) {
-        showToast(`New show detected: ${show.title} on ${show.platform}`);
-      }
+      if(show.title.length > 5) showToast(`New show detected: ${show.title} on ${show.platform}`);
     });
   }
   renderYTShowsFeed();
