@@ -1411,24 +1411,25 @@ function getAIRec(stage, stageKey, idx) {
 
 // ── CONCEPT ANALYSIS (Strict + Competitor-Aware) ──────────────────────────────
 function analyseConceptStrict(item, recEl) {
-  let score = 30;
+  let base = 30;
+  let bonus = 0; // bonus capped at 45 max
   const reasons = [], risks = [], flags = [];
   const l = (item.logline + ' ' + (item.synopsis||'')).toLowerCase();
 
-  // Genre scoring
-  const genreMap = { 'Romance / CEO':12,'Crime / Revenge':11,'Family drama':10,'Workplace thriller':8,'Historical':6,'Supernatural':6,'Comedy':4 };
-  score += genreMap[item.genre] || 6;
+  // Genre scoring (reduced)
+  const genreMap = { 'Romance / CEO':10,'Crime / Revenge':9,'Family drama':8,'Workplace thriller':7,'Historical':5,'Supernatural':5,'Comedy':3 };
+  bonus += genreMap[item.genre] || 5;
   if(item.genre==='Romance / CEO') { reasons.push('Highest demand genre — but most saturated. DramaBox and ReelShort dominate.'); flags.push('Must have a clear differentiator from 50+ similar shows already running ads'); }
   else if(item.genre==='Crime / Revenge') reasons.push('Strong demand — female revenge angle is wide open, male revenge is Kuku TV\'s territory');
   else reasons.push(`${item.genre} — moderate competition, execution quality is decisive`);
 
-  // Language
-  const langMap = { 'Bhojpuri':18,'Gujarati':17,'Marathi':16,'Bengali':12,'Telugu':11,'Tamil':10,'Kannada':9,'Hindi':8 };
-  score += langMap[item.lang] || 7;
+  // Language scoring (reduced)
+  const langMap = { 'Bhojpuri':14,'Gujarati':13,'Marathi':12,'Bengali':9,'Telugu':8,'Tamil':7,'Kannada':7,'Hindi':5 };
+  bonus += langMap[item.lang] || 5;
   if(['Bhojpuri','Gujarati','Marathi'].includes(item.lang)) reasons.push(`${item.lang} — virtually zero competition, first mover wins loyal audience`);
-  else if(item.lang==='Hindi') flags.push('Hindi = maximum competition. Hook must be exceptional to cut through.');
+  else if(item.lang==='Hindi') flags.push('Hindi = maximum competition across all genres. Hook must be genuinely exceptional.');
 
-  // Story signals
+  // Story signals — only top 3 fire, not all of them
   const hasRevenge = l.includes('revenge')||l.includes('badla')||l.includes('destroy')||l.includes('intqaam');
   const hasIdentity = l.includes('secret')||l.includes('identity')||l.includes('reveal')||l.includes('infiltrat')||l.includes('hidden');
   const hasFemale = l.includes('woman')||l.includes('girl')||l.includes('daughter')||l.includes('mother')||l.includes('she')||l.includes('her')||l.includes('bahu');
@@ -1440,34 +1441,50 @@ function analyseConceptStrict(item, recEl) {
   const hasEmotion = l.includes('love')||l.includes('grief')||l.includes('broken')||l.includes('sacrifice')||l.includes('guilt')||l.includes('loss');
   const hasSynopsis = (item.synopsis||'').length > 100;
 
-  if(hasRevenge) { score += 7; reasons.push('Revenge arc — proven driver of episode-to-episode compulsion'); }
-  if(hasIdentity) { score += 6; reasons.push('Identity reveal — #1 cliffhanger structure working across all platforms right now'); }
-  if(hasDualTimeline) { score += 5; reasons.push('Dual timeline — creates mystery and emotional depth simultaneously'); }
-  if(hasFamily) { score += 4; reasons.push('Family stakes — deep emotional investment and strong word-of-mouth sharing'); }
-  if(hasTwist) { score += 5; }
-  if(hasEmotion) { score += 4; reasons.push('Emotional depth — audiences remember how it made them feel, not the plot'); }
-  if(hasSynopsis) { score += 4; reasons.push('Synopsis provided — concept is well-developed for this stage'); }
+  // Story bonuses — max 3 points each, controlled stacking
+  let storyBonus = 0;
+  if(hasRevenge) { storyBonus += 6; reasons.push('Revenge arc — proven driver of episode-to-episode compulsion'); }
+  if(hasIdentity) { storyBonus += 5; reasons.push('Identity reveal — #1 cliffhanger structure working across all platforms right now'); }
+  if(hasDualTimeline) { storyBonus += 4; reasons.push('Dual timeline — creates mystery and emotional depth simultaneously'); }
+  if(hasFamily) { storyBonus += 3; reasons.push('Family stakes — deep emotional investment and strong word-of-mouth sharing'); }
+  if(hasEmotion) { storyBonus += 3; reasons.push('Emotional depth — audiences remember how it made them feel, not the plot'); }
+  if(hasSynopsis) { storyBonus += 3; reasons.push('Synopsis provided — concept is well-developed for this stage'); }
   else flags.push('No synopsis — add 2-3 paragraphs for a more accurate score');
 
-  // Protagonist scoring — nuanced, not binary
-  if(hasFemale && !hasMale) { score += 8; reasons.push('Female-led — targets the most underserved segment, 90%+ of platforms ignore women 18-35'); }
-  else if(hasMale && !hasFemale) {
-    if(hasTwist || hasEmotion || hasIdentity) { score += 5; reasons.push('Male-led with emotional depth or twist — Kuku TV does male fantasy badly, quality male story has a gap'); }
-    else { score -= 3; risks.push('Male-led without emotional depth or twist — Kuku TV already dominates male fantasy, need a clear differentiator'); }
-  } else if(hasFemale && hasMale) { score += 5; reasons.push('Dual protagonist — strong for family drama and romance genres'); }
+  // Cap story bonus at 15 — prevents stacking
+  bonus += Math.min(storyBonus, 15);
 
-  // Strict penalties
-  if(!hasTwist && !hasRevenge && !hasIdentity) { score -= 10; risks.push('CRITICAL: No hook, twist, or conflict in logline — audiences will not watch past episode 2'); }
-  if(item.genre==='Romance / CEO' && item.lang==='Hindi' && !hasIdentity && !hasRevenge && !hasEmotion) { score -= 8; risks.push('Hindi Romance/CEO without twist or emotional depth = exact same as 50 shows already running — needs differentiator'); }
+  // Protagonist scoring
+  if(hasFemale && !hasMale) { bonus += 6; reasons.push('Female-led — targets the most underserved segment, 90%+ of platforms ignore women 18-35'); }
+  else if(hasMale && !hasFemale) {
+    if(hasTwist || hasEmotion || hasIdentity) { bonus += 4; reasons.push('Male-led with emotional depth or twist — Kuku TV does male fantasy badly, quality has a gap'); }
+    else { base -= 3; risks.push('Male-led without emotional depth — Kuku TV already dominates male fantasy, need clear differentiator'); }
+  } else if(hasFemale && hasMale) { bonus += 4; reasons.push('Dual protagonist — strong for family drama and romance genres'); }
+
+  // Hard cap bonus at 45
+  bonus = Math.min(bonus, 45);
+
+  let score = base + bonus;
+
+  // Strict penalties — applied AFTER bonus cap
+  if(!hasTwist && !hasRevenge && !hasIdentity) { score -= 12; risks.push('CRITICAL: No hook, twist, or conflict in logline — audiences will not watch past episode 2'); }
+  if(item.lang==='Hindi' && !hasIdentity && !hasRevenge && !hasEmotion) { score -= 8; risks.push('Hindi without a twist or emotional hook = same as 80+ shows already running — must differentiate'); }
+  if(item.genre==='Romance / CEO' && item.lang==='Hindi' && !hasIdentity && !hasRevenge) { score -= 5; risks.push('Hindi Romance/CEO is the single most crowded micro-drama category — extremely hard to break through'); }
   if((item.logline||'').length < 30) { score -= 5; risks.push('Logline too short — expand to properly evaluate concept'); }
   if(item.genre==='Comedy') { score -= 5; risks.push('Comedy is the hardest genre in micro-drama — timing is extremely difficult in 90-second episodes'); }
 
-  score = Math.min(Math.max(score, 20), 95);
+  // Final cap — 82 max for Hindi competitive genres, 88 max otherwise
+  const hardMax = (item.lang==='Hindi' && ['Romance / CEO','Crime / Revenge'].includes(item.genre)) ? 82 : 88;
+  score = Math.min(Math.max(score, 15), hardMax);
 
   // Competitor intelligence
   const { intel, edges } = getCompetitorIntel(item.genre, item.lang);
 
-  const verdict = score >= 80 ? 'GREENLIGHT' : score >= 60 ? 'DEVELOP' : score >= 45 ? 'REWORK' : 'PASS';
+  // Rescale to 100
+  const scaledScore = Math.round((score / hardMax) * 100);
+  const displayScore = Math.min(scaledScore, 100);
+
+  const verdict = displayScore >= 78 ? 'GREENLIGHT' : displayScore >= 60 ? 'DEVELOP' : displayScore >= 45 ? 'REWORK' : 'PASS';
   const vColor = verdict==='GREENLIGHT'?'#3af4b4':verdict==='DEVELOP'?'#e8f43a':verdict==='REWORK'?'#f4903a':'#f43a6e';
   const headline = verdict==='GREENLIGHT'?'Strong concept — move to Beat Sheet':verdict==='DEVELOP'?'Promising — strengthen before Beat Sheet':verdict==='REWORK'?'Needs significant rework — revisit core hook':'Not viable in current form — rethink concept';
 
@@ -1480,17 +1497,34 @@ function analyseConceptStrict(item, recEl) {
   else if(hasFamily) hook = 'Perfect family photo on the wall. Camera zooms. One face has been cut out. Who? And why?';
   else hook = 'Open at the most tense moment of the series. No context. Let the audience catch up. Hook in 5 seconds.';
 
+  // ── IMPROVEMENT SUGGESTIONS ──
+  const improvements = [];
+
+  if(!hasIdentity && !hasRevenge) improvements.push('Add an identity reveal or revenge arc to the logline — these are the #1 and #2 performing structures in India micro-drama right now. Even a hint of a secret changes audience engagement completely.');
+  if(!hasDualTimeline) improvements.push('Consider a dual timeline (past + present) — it creates built-in mystery and lets you open episode 1 with maximum emotional impact without explaining the backstory.');
+  if(!hasEmotion) improvements.push('Add emotional stakes to the logline — audiences don\'t binge for plot, they binge for feeling. What does the protagonist stand to lose emotionally, not just practically?');
+  if(item.genre==='Romance / CEO' && !hasIdentity && !hasRevenge) improvements.push('Romance/CEO needs a twist to stand out — consider adding an identity reveal (she\'s actually his boss\'s daughter) or a revenge angle (she\'s infiltrating his company deliberately) to the premise.');
+  if(!hasFemale && !hasMale) improvements.push('Clarify your protagonist in the logline — who is driving this story? The AI cannot score protagonist differentiation without knowing who the lead is.');
+  if(hasMale && !hasFemale && !hasTwist && !hasEmotion) improvements.push('Male-led story needs a clear differentiator — Kuku TV already owns male fantasy. Add emotional vulnerability, a moral dilemma, or a twist that Kuku TV wouldn\'t dare touch.');
+  if((item.logline||'').length < 60) improvements.push('Expand your logline to 1-2 sentences — it\'s too short to evaluate properly. Include: who the protagonist is, what they want, what stands in their way, and what the twist or hook is.');
+  if(!hasSynopsis) improvements.push('Add a full synopsis (2-3 paragraphs) — the AI is scoring blind without it. A strong synopsis alone adds 5-8 points.');
+  if(improvements.length === 0) improvements.push('Concept is strong — focus on beat sheet now. The score will increase significantly once episode structure, cliffhanger placement and mid-story twist are mapped out.');
+
   recEl.innerHTML = `
     <div style="background:rgba(192,158,244,0.06);border:1px solid rgba(192,158,244,0.2);border-radius:5px;padding:10px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <span style="font-family:var(--display);font-size:13px;font-weight:800;color:${vColor};">${verdict}</span>
-        <span style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vColor}33;padding:1px 6px;border-radius:2px;">${score}/95</span>
+        <span style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vColor}33;padding:1px 6px;border-radius:2px;">${displayScore}/100</span>
       </div>
       <div style="font-size:10px;color:var(--text2);font-style:italic;margin-bottom:8px;">${headline}</div>
       ${reasons.length ? `<div style="font-size:10px;color:var(--green);margin-bottom:5px;line-height:1.6;">${reasons.slice(0,4).map(r=>`+ ${r}`).join('<br>')}</div>` : ''}
       ${risks.length ? `<div style="font-size:10px;color:var(--red);margin-bottom:5px;line-height:1.6;">${risks.map(r=>`− ${r}`).join('<br>')}</div>` : ''}
       ${flags.length ? `<div style="font-size:10px;color:var(--amber);margin-bottom:6px;line-height:1.6;">${flags.map(f=>`⚠ ${f}`).join('<br>')}</div>` : ''}
       <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#3a9ef4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">How to improve this concept</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.7;">${improvements.slice(0,3).map((imp,i)=>`<div style="margin-bottom:5px;display:flex;gap:6px;"><span style="color:#3a9ef4;flex-shrink:0;">${i+1}.</span>${imp}</div>`).join('')}</div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
         <div style="font-family:var(--mono);font-size:9px;color:#f4903a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">What's working for competitors</div>
         <div style="font-size:10px;color:var(--text2);line-height:1.6;">${intel.map(i=>`📊 ${i}`).join('<br>')}</div>
       </div>
