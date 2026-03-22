@@ -258,27 +258,66 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 <!-- AD INTEL -->
 <div class="page pad" id="page-ads">
-  <div class="section-header"><div class="section-title">Ad Intelligence</div><div class="section-sub">Meta · YouTube · Active creatives tracked</div></div>
-  <div class="grid-4">
-    <div class="kpi-card k-red"><div class="kpi-label">Hottest Spender</div><div class="kpi-val" style="font-size:20px;">DramaBox</div><div class="kpi-delta down">↑ 240% MoM India</div></div>
-    <div class="kpi-card k-yellow"><div class="kpi-label">Active Ad Sets</div><div class="kpi-val">340+</div><div class="kpi-delta neutral">Across all platforms</div></div>
-    <div class="kpi-card k-blue"><div class="kpi-label">Top Hook Format</div><div class="kpi-val" style="font-size:18px;">Ep 1 Clip</div><div class="kpi-delta neutral">Identity reveal / slap</div></div>
-    <div class="kpi-card k-green"><div class="kpi-label">Avg Creatives/Show</div><div class="kpi-val">7–12</div><div class="kpi-delta up">Winners get 20+</div></div>
-  </div>
-  <div class="grid-2-3">
-    <div class="card"><div class="card-head"><div class="card-title">Platform ad intensity</div></div><div class="card-body" id="ad-intensity-list"></div></div>
-    <div class="card">
-      <div class="card-head">
-        <div class="card-title">Active ad creatives</div>
-        <select id="ad-filter" class="form-select" style="font-size:11px;padding:3px 8px;width:auto;" onchange="renderAds()">
-          <option value="all">All platforms</option>
-          <option>DramaBox</option><option>Kuku TV</option><option>ReelShort</option><option>QuickTV</option>
-        </select>
-      </div>
-      <div class="card-body" style="max-height:420px;overflow-y:auto;" id="ad-list"></div>
+  <div class="section-header" style="justify-content:space-between;">
+    <div><div class="section-title">Ad Intelligence</div><div class="section-sub">Import from BigSpy · AdSpy · PowerAdSpy · or log manually</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" onclick="openModal('add-ad')">+ Log Ad Manually</button>
+      <button class="btn btn-primary" onclick="document.getElementById('csv-upload').click()">⬆ Import CSV</button>
+      <input type="file" id="csv-upload" accept=".csv" style="display:none;" onchange="importAdCSV(event)">
     </div>
   </div>
-  <div class="card"><div class="card-head"><div class="card-title">How to monitor Meta Ad Library</div></div><div class="card-body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:5px;">STEP 1 — SEARCH</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Go to facebook.com/ads/library. Search each competitor name. Filter by India, All Ads.</div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:5px;">STEP 2 — SPIKE SIGNAL</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Count active ads per platform weekly. A jump of 20+ new ads in 7 days on a single show = breakout or heavy launch push.</div></div><div style="background:var(--bg2);border-radius:5px;padding:10px 12px;"><div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:5px;">STEP 3 — HOOK ANALYSIS</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">Screenshot recurring creatives. Same opening line across 10+ ad variations = confirmed winner hook. Reverse-engineer for Fast TV scripts.</div></div></div></div></div>
+
+  <div class="grid-4" id="ad-kpis"></div>
+
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+    <select class="form-select" id="ad-filter-platform" style="font-size:11px;padding:4px 10px;width:auto;" onchange="renderAdIntel()"><option value="all">All platforms</option></select>
+    <select class="form-select" id="ad-filter-spike" style="font-size:11px;padding:4px 10px;width:auto;" onchange="renderAdIntel()">
+      <option value="all">All spend levels</option><option>Heavy</option><option>Rising</option><option>Stable</option>
+    </select>
+    <input class="form-input" id="ad-search" placeholder="Search by show or hook..." style="font-size:12px;padding:4px 10px;width:220px;" oninput="renderAdIntel()">
+    <button class="btn btn-ghost" style="font-size:10px;padding:4px 12px;color:var(--red);" onclick="clearAdData()">Clear all</button>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-body" style="padding:0;overflow-x:auto;">
+      <table class="plat-table" style="min-width:900px;">
+        <thead>
+          <tr>
+            <th>#</th><th>Platform</th><th>Show title</th><th>Opening hook</th>
+            <th>Channel</th><th>Active ads</th><th>Spend signal</th><th>Date logged</th><th>Logged by</th><th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="ad-intel-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card"><div class="card-head"><div class="card-title">Platform ad intensity</div></div><div class="card-body" id="ad-intensity-list"></div></div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">How to use BigSpy with this tracker</div></div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="background:var(--bg2);border-radius:5px;padding:10px 12px;">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:4px;">STEP 1 — SIGN UP</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5;">Go to bigspy.com — free trial available. Search each competitor: "Kuku TV", "DramaBox", "ReelShort" etc. Filter by India + Facebook/Instagram.</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:5px;padding:10px 12px;">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:4px;">STEP 2 — EXPORT CSV</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5;">Click "Export" in BigSpy. Download the CSV. The war room accepts BigSpy CSV format directly — or any CSV with columns: Platform, Title, Hook, Channel, Active Ads, Spend.</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:5px;padding:10px 12px;">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:4px;">STEP 3 — IMPORT DAILY</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5;">Hit "Import CSV" above — the war room auto-populates. Your whole team sees the fresh data instantly. Do this every morning for live ad intelligence.</div>
+          </div>
+          <div style="background:rgba(232,244,58,0.05);border:1px solid rgba(232,244,58,0.15);border-radius:5px;padding:10px 12px;">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:4px;">SPIKE SIGNAL</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5;">20+ new ads on a single show in 7 days = breakout or heavy launch push. Same hook across 10+ creatives = confirmed winner — reverse-engineer for Fast TV scripts.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- TASKS -->
@@ -395,6 +434,34 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <button class="btn btn-primary" onclick="saveEditCard()">Save Changes</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-ad">
+  <div class="modal">
+    <h2>Log Ad Creative</h2>
+    <div class="two-col">
+      <div class="form-row"><div class="form-label">Platform *</div>
+        <select class="form-select" id="ad-platform">
+          <option>Kuku TV</option><option>QuickTV</option><option>DramaBox</option><option>ReelShort</option>
+          <option>MX Fatafat</option><option>Bullet (Zee)</option><option>ReelSaga</option><option>GoodShort</option>
+          <option>Kutingg</option><option>Story TV</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-row"><div class="form-label">Show title *</div><input class="form-input" id="ad-title" placeholder="e.g. CEO Ka Raaz"></div>
+      <div class="form-row"><div class="form-label">Channel</div>
+        <select class="form-select" id="ad-channel">
+          <option>Meta (Facebook/Instagram)</option><option>YouTube</option><option>Meta + YouTube</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-row"><div class="form-label">Active ads count</div><input class="form-input" id="ad-count" type="number" placeholder="e.g. 18"></div>
+      <div class="form-row"><div class="form-label">Spend signal</div>
+        <select class="form-select" id="ad-spike"><option>Heavy</option><option>Rising</option><option>Stable</option></select>
+      </div>
+      <div class="form-row"><div class="form-label">Logged by</div><input class="form-input" id="ad-logger" placeholder="Your name"></div>
+      <div class="form-row full-col"><div class="form-label">Opening hook (copy from ad)</div><textarea class="form-textarea" id="ad-hook" placeholder="Paste the opening line or description from the ad..."></textarea></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-ghost" onclick="closeModal('add-ad')">Cancel</button><button class="btn btn-primary" onclick="addAdManual()">Log Ad</button></div>
   </div>
 </div>
 
@@ -540,6 +607,10 @@ function goto(page, btn) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
   btn.classList.add('active');
+  if(page === 'ads') renderAdIntel();
+  if(page === 'pipeline') renderPipeline();
+  if(page === 'tasks') renderTasks();
+  if(page === 'launches') renderLaunchesView();
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
@@ -560,12 +631,11 @@ function showToast(msg) {
 function renderAll() {
   renderGenreHeat();
   renderPlatformTable();
-  renderAdIntensity();
-  renderAds();
   renderPipeline();
   renderTasks();
   renderLaunchesView();
   renderAlertFeed();
+  renderAdIntel();
 }
 
 // ── Genre heat ────────────────────────────────────────────────────────────────
@@ -815,6 +885,111 @@ function addLaunch() {
 function deleteLaunch(id) {
   if(!confirm('Remove this entry?')) return;
   send('DELETE_LAUNCH',{id});
+}
+
+// ── Ad Intel ──────────────────────────────────────────────────────────────────
+let adIntelData = JSON.parse(localStorage.getItem('fasttv_adIntel') || '[]');
+let adIdCounter = adIntelData.reduce((m,a) => Math.max(m, a.id||0), 0) + 1;
+function saveAdIntel() { localStorage.setItem('fasttv_adIntel', JSON.stringify(adIntelData)); }
+
+function importAdCSV(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    if(lines.length < 2) { alert('CSV appears empty or invalid.'); return; }
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
+    let imported = 0;
+    for(let i = 1; i < lines.length; i++) {
+      const vals = lines[i].match(/(".*?"|[^,]+)(?=,|$)/g) || lines[i].split(',');
+      const clean = v => (v||'').replace(/^"|"$/g,'').trim();
+      const get = (keys) => { for(const k of keys) { const idx = headers.findIndex(h => h.includes(k)); if(idx !== -1) return clean(vals[idx]); } return ''; };
+      const platform = get(['platform','advertiser','page','brand']) || 'Unknown';
+      const title = get(['title','show','name','ad name','creative name']) || 'Unknown Show';
+      const hook = get(['hook','headline','body','text','description','copy','message']);
+      const channel = get(['channel','platform type','network','source']) || 'Meta';
+      const count = parseInt(get(['active','count','ads','creatives','number'])) || 1;
+      const spike = count >= 15 ? 'Heavy' : count >= 8 ? 'Rising' : 'Stable';
+      adIntelData.unshift({ id: adIdCounter++, platform, title, hook, channel, count, spike, logger:'CSV Import', date: new Date().toISOString().slice(0,10) });
+      imported++;
+    }
+    saveAdIntel();
+    renderAdIntel();
+    showToast(`Imported ${imported} ad records from CSV`);
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function addAdManual() {
+  const title = document.getElementById('ad-title').value.trim();
+  if(!title) return;
+  adIntelData.unshift({
+    id: adIdCounter++,
+    platform: document.getElementById('ad-platform').value,
+    title,
+    hook: document.getElementById('ad-hook').value.trim(),
+    channel: document.getElementById('ad-channel').value,
+    count: parseInt(document.getElementById('ad-count').value) || 1,
+    spike: document.getElementById('ad-spike').value,
+    logger: document.getElementById('ad-logger').value.trim() || 'Me',
+    date: new Date().toISOString().slice(0,10)
+  });
+  saveAdIntel();
+  closeModal('add-ad');
+  ['ad-title','ad-hook','ad-count','ad-logger'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  renderAdIntel();
+  showToast('Ad logged successfully');
+}
+
+function deleteAdEntry(id) { adIntelData = adIntelData.filter(a => a.id !== id); saveAdIntel(); renderAdIntel(); }
+function clearAdData() { if(!confirm('Clear all ad data?')) return; adIntelData = []; saveAdIntel(); renderAdIntel(); }
+
+function renderAdIntel() {
+  const pf = document.getElementById('ad-filter-platform')?.value || 'all';
+  const sf = document.getElementById('ad-filter-spike')?.value || 'all';
+  const q = (document.getElementById('ad-search')?.value || '').toLowerCase();
+  const pfEl = document.getElementById('ad-filter-platform');
+  if(pfEl) { const plats = [...new Set(adIntelData.map(a => a.platform))].sort(); pfEl.innerHTML = '<option value="all">All platforms</option>' + plats.map(p => `<option${p===pf?' selected':''}>${p}</option>`).join(''); }
+  const filtered = adIntelData.filter(a => (pf==='all'||a.platform===pf) && (sf==='all'||a.spike===sf) && (!q||a.title.toLowerCase().includes(q)||(a.hook||'').toLowerCase().includes(q))).sort((a,b) => b.date.localeCompare(a.date));
+  const kpiEl = document.getElementById('ad-kpis');
+  if(kpiEl) {
+    if(adIntelData.length === 0) {
+      kpiEl.innerHTML = `<div class="kpi-card k-yellow" style="grid-column:1/-1;text-align:center;"><div class="kpi-label">No ad data yet</div><div style="font-size:13px;color:var(--text2);margin-top:8px;">Import a CSV from BigSpy/AdSpy or log ads manually using the buttons above</div></div>`;
+    } else {
+      const heavy = adIntelData.filter(a => a.spike==='Heavy').length;
+      const platCnt = {}; adIntelData.forEach(a => { platCnt[a.platform] = (platCnt[a.platform]||0) + (a.count||1); });
+      const topPlat = Object.entries(platCnt).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
+      const totalAds = adIntelData.reduce((s,a) => s+(a.count||1), 0);
+      const avg = adIntelData.length ? Math.round(totalAds/adIntelData.length) : 0;
+      kpiEl.innerHTML = `<div class="kpi-card k-yellow"><div class="kpi-label">Total ad entries</div><div class="kpi-val">${adIntelData.length}</div><div class="kpi-delta neutral">Across all platforms</div></div><div class="kpi-card k-red"><div class="kpi-label">Heavy spend shows</div><div class="kpi-val">${heavy}</div><div class="kpi-delta down">Watch these closely</div></div><div class="kpi-card k-green"><div class="kpi-label">Most active platform</div><div class="kpi-val" style="font-size:16px;">${topPlat}</div><div class="kpi-delta neutral">${platCnt[topPlat]||0} total ads</div></div><div class="kpi-card k-blue"><div class="kpi-label">Avg creatives/show</div><div class="kpi-val">${avg}</div><div class="kpi-delta neutral">20+ = breakout signal</div></div>`;
+    }
+  }
+  const tbody = document.getElementById('ad-intel-tbody');
+  if(tbody) {
+    if(filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:32px;font-size:12px;">${adIntelData.length===0?'No ad data yet — import a CSV or log manually above':'No results match your filters'}</td></tr>`;
+    } else {
+      tbody.innerHTML = filtered.map((a,i) => {
+        const pd = PLATFORMS.find(p => p.name===a.platform);
+        const ic = pd?pd.icon:(a.platform||'??').slice(0,2).toUpperCase(), bg=pd?pd.color:'#1a1a2a', tc=pd?pd.tc:'#aaaaff';
+        const sc = a.spike==='Heavy'?'spike-hot':a.spike==='Rising'?'spike-rising':'spike-stable';
+        return `<tr><td style="font-family:var(--mono);font-size:10px;color:var(--text3);">${i+1}</td><td><div style="display:flex;align-items:center;gap:7px;"><div style="width:22px;height:22px;border-radius:4px;background:${bg};color:${tc};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;font-family:var(--display);flex-shrink:0;">${ic}</div><span style="font-size:11px;color:var(--text2);">${a.platform||'—'}</span></div></td><td style="font-size:12px;font-weight:500;color:var(--text);max-width:140px;">${a.title||'—'}</td><td style="max-width:200px;"><div style="font-size:11px;color:var(--text2);font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">"${a.hook||'—'}"</div></td><td><span class="mono-sm" style="font-size:10px;">${a.channel||'—'}</span></td><td><span style="font-family:var(--mono);font-size:12px;font-weight:500;color:${(a.count||0)>=15?'var(--red)':(a.count||0)>=8?'var(--amber)':'var(--text2)'};">${a.count||'—'}</span></td><td><span class="spike-badge ${sc}">${a.spike||'—'}</span></td><td><span style="font-family:var(--mono);font-size:10px;color:var(--text3);">${a.date||'—'}</span></td><td><span style="font-family:var(--mono);font-size:10px;color:var(--text3);">${a.logger||'—'}</span></td><td><button onclick="deleteAdEntry(${a.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px 6px;" title="Delete">×</button></td></tr>`;
+      }).join('');
+    }
+  }
+  const intensityEl = document.getElementById('ad-intensity-list');
+  if(intensityEl) {
+    if(adIntelData.length === 0) { intensityEl.innerHTML = '<div style="font-size:12px;color:var(--text3);">No data yet — import CSV to see platform intensity</div>'; }
+    else {
+      const platTotals = {}; adIntelData.forEach(a => { platTotals[a.platform] = (platTotals[a.platform]||0)+(a.count||1); });
+      const sorted = Object.entries(platTotals).sort((a,b) => b[1]-a[1]).slice(0,8);
+      const max = sorted[0]?.[1]||1;
+      const cols = ['#f43a6e','#f4903a','#f4c03a','#e8f43a','#3af4b4','#3a9ef4','#c09ef4','#f49e3a'];
+      intensityEl.innerHTML = sorted.map(([p,n],i) => `<div class="genre-row"><div class="genre-name" style="font-size:12px;">${p}</div><div class="genre-bar"><div class="genre-fill" style="width:${Math.round(n/max*100)}%;background:${cols[i%cols.length]};"></div></div><div class="genre-pct">${n}</div></div>`).join('');
+    }
+  }
 }
 
 // ── Deep Greenlight Analysis Engine ──────────────────────────────────────────
