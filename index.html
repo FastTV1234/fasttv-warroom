@@ -387,22 +387,99 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 
 <!-- MODALS -->
 <div class="modal-overlay" id="modal-add-show">
-  <div class="modal">
-    <h2>Add Show to Pipeline</h2>
+  <div class="modal" style="max-width:580px;">
+    <h2 id="add-show-modal-title">Add Show to Pipeline</h2>
     <div class="two-col">
-      <div class="form-row full-col"><div class="form-label">Show title</div><input class="form-input" id="show-title" placeholder="e.g. Pyaar Ka Badla"></div>
+      <div class="form-row full-col"><div class="form-label">Show title *</div><input class="form-input" id="show-title" placeholder="e.g. Pyaar Ka Badla"></div>
       <div class="form-row"><div class="form-label">Genre</div><select class="form-select" id="show-genre"><option>Romance / CEO</option><option>Crime / Revenge</option><option>Family drama</option><option>Workplace thriller</option><option>Historical</option><option>Supernatural</option><option>Comedy</option></select></div>
       <div class="form-row"><div class="form-label">Language</div><select class="form-select" id="show-lang"><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Bengali</option><option>Kannada</option><option>Marathi</option><option>Bhojpuri</option><option>Gujarati</option></select></div>
-      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="show-stage"><option>Concept</option><option>Beat Sheet</option><option>Greenlight (Contract)</option><option>Casting</option><option>Scripting</option><option>Production</option><option>Post Production</option><option>Launched</option><option>Marketing</option></select></div>
+      <div class="form-row"><div class="form-label">Stage</div>
+        <select class="form-select" id="show-stage" onchange="updateAddShowForm()">
+          <option>Concept</option><option>Beat Sheet</option><option>Greenlight (Contract)</option>
+          <option>Casting</option><option>Scripting</option><option>Production</option>
+          <option>Post Production</option><option>Launched</option><option>Marketing</option>
+        </select>
+      </div>
       <div class="form-row"><div class="form-label">Priority</div><select class="form-select" id="show-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
-      <div class="form-row full-col"><div class="form-label">Logline</div><textarea class="form-textarea" id="show-logline" placeholder="One-line story hook..."></textarea></div>
-      <div class="form-row full-col"><div class="form-label">Google Doc / Script link</div><input class="form-input" id="show-gdoc" placeholder="Paste Google Doc link e.g. docs.google.com/..."></div>
-      <div class="form-row full-col"><div class="form-label">Synopsis (for Beat Sheet AI analysis)</div><textarea class="form-textarea" id="show-synopsis" placeholder="2-3 paragraph story summary — acts, turning points, ending..." style="min-height:80px;"></textarea></div>
-      <div class="form-row full-col"><div class="form-label">Paste script here (optional)</div><textarea class="form-textarea" id="show-script" placeholder="Paste full script text here — your team can read it directly from the pipeline card..." style="min-height:120px;"></textarea></div>
     </div>
+
+    <!-- Stage-specific fields -->
+    <div id="stage-fields-concept">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Logline *</div><textarea class="form-textarea" id="show-logline" placeholder="One sentence — who is the protagonist, what do they want, what stands in their way?" style="min-height:60px;"></textarea></div>
+      <div class="form-row full-col"><div class="form-label">Synopsis</div><textarea class="form-textarea" id="show-synopsis" placeholder="2-3 paragraphs — acts, key turning points, ending..." style="min-height:100px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-beatsheet" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Logline</div><textarea class="form-textarea" id="show-logline-bs" placeholder="One-line story hook..." style="min-height:50px;"></textarea></div>
+      <div class="form-row full-col"><div class="form-label">Beat Sheet</div><textarea class="form-textarea" id="show-beatsheet" placeholder="Episode-by-episode breakdown — list each episode number with what happens, who reveals what, cliffhangers..." style="min-height:140px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-contract" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Logline</div><textarea class="form-textarea" id="show-logline-ct" placeholder="One-line story hook..." style="min-height:50px;"></textarea></div>
+      <div class="form-row full-col"><div class="form-label">Contract status</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-contract-status" value="Open" checked style="accent-color:var(--accent);"> Open</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-contract-status" value="Signed" style="accent-color:var(--accent);"> Signed</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-contract-status" value="Delayed" style="accent-color:var(--accent);"> Delayed</label>
+        </div>
+      </div>
+    </div>
+
+    <div id="stage-fields-casting" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Casting status</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-casting-status" value="Open" checked style="accent-color:var(--accent);"> Open</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-casting-status" value="Closed" style="accent-color:var(--accent);"> Closed</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-casting-status" value="Delayed" style="accent-color:var(--accent);"> Delayed</label>
+        </div>
+      </div>
+      <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="show-casting-notes" placeholder="Lead actors, director, any delays..." style="min-height:60px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-scripting" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Google Doc link</div><input class="form-input" id="show-gdoc" placeholder="Paste Google Doc link e.g. docs.google.com/..."></div>
+      <div class="form-row full-col"><div class="form-label">Or paste full script here</div><textarea class="form-textarea" id="show-script" placeholder="Paste complete script — all episodes..." style="min-height:140px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-production" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Production status</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-production-status" value="About to begin" checked style="accent-color:var(--accent);"> About to begin</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-production-status" value="On floors" style="accent-color:var(--accent);"> On floors</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-production-status" value="Finished" style="accent-color:var(--accent);"> Finished</label>
+        </div>
+      </div>
+      <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="show-production-notes" placeholder="Shoot location, schedule, director..." style="min-height:60px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-postproduction" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Post Production status</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-post-status" value="On track" checked style="accent-color:var(--accent);"> On track</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-post-status" value="Delayed" style="accent-color:var(--accent);"> Delayed</label>
+        </div>
+      </div>
+      <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="show-post-notes" placeholder="Editing, color, sound, subtitles..." style="min-height:60px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-launched" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Launch date</div><input class="form-input" id="show-launch-date" type="date"></div>
+      <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="show-launched-notes" placeholder="Views, downloads, audience feedback..." style="min-height:60px;"></textarea></div>
+    </div>
+
+    <div id="stage-fields-marketing" style="display:none;">
+      <div class="form-row full-col" style="margin-top:10px;"><div class="form-label">Marketing status</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-marketing-status" value="On track" checked style="accent-color:var(--accent);"> On track</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="radio" name="show-marketing-status" value="Delayed" style="accent-color:var(--accent);"> Delayed</label>
+        </div>
+      </div>
+      <div class="form-row full-col"><div class="form-label">Notes</div><textarea class="form-textarea" id="show-marketing-notes" placeholder="Ad campaigns, Meta spend, Instagram hooks..." style="min-height:60px;"></textarea></div>
+    </div>
+
     <div id="show-recommendation" style="display:none;margin-top:12px;border-radius:6px;padding:12px 14px;"></div>
     <div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;align-items:center;">
-      <button class="btn btn-ghost" id="show-greenlight-btn" onclick="getGreenlightRec('show')" style="color:var(--accent);border-color:rgba(232,244,58,0.3);">✦ Get AI Greenlight Recommendation</button>
+      <button class="btn btn-ghost" id="show-greenlight-btn" onclick="getGreenlightRecModal()" style="color:#c09ef4;border-color:rgba(192,158,244,0.3);">✦ AI Concept Analysis</button>
       <div class="btn-row" style="margin-top:0;">
         <button class="btn btn-ghost" onclick="closeModal('add-show')">Cancel</button>
         <button class="btn btn-primary" onclick="addShow()">Add to Pipeline</button>
@@ -457,7 +534,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     </div>
     <div id="edit-recommendation" style="display:none;margin-top:12px;border-radius:6px;padding:12px 14px;"></div>
     <div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;align-items:center;">
-      <button class="btn btn-ghost" onclick="getGreenlightRec('edit')" style="color:var(--accent);border-color:rgba(232,244,58,0.3);">✦ Get AI Greenlight Recommendation</button>
+      <button class="btn btn-ghost" onclick="getGreenlightRec('edit')" style="color:#c09ef4;border-color:rgba(192,158,244,0.3);">✦ Strict AI Concept Analysis</button>
       <div class="btn-row" style="margin-top:0;">
         <button class="btn btn-ghost" onclick="closeModal('edit-card')">Cancel</button>
         <button class="btn btn-primary" onclick="saveEditCard()">Save Changes</button>
@@ -668,7 +745,7 @@ function goto(page, btn) {
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById('modal-'+id).classList.add('open'); }
+function openModal(id) { document.getElementById('modal-'+id).classList.add('open'); if(id==='add-show') updateAddShowForm(); }
 function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
 
@@ -836,6 +913,12 @@ function renderPipeline() {
             </div>
             ${item.logline ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;line-height:1.4;">${item.logline.slice(0,80)}${item.logline.length>80?'...':''}</div>` : ''}
             ${item.synopsis ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;line-height:1.4;font-style:italic;">${item.synopsis.slice(0,60)}...</div>` : ''}
+            ${item.status ? (() => {
+              const s = item.status;
+              const col = ['Signed','Closed','Finished','On track','On floors'].includes(s)?'var(--green)':['Delayed','Open'].includes(s)?'var(--amber)':'var(--blue)';
+              return `<div style="font-family:var(--mono);font-size:9px;color:${col};border:1px solid ${col}33;padding:1px 6px;border-radius:3px;display:inline-block;margin-bottom:4px;">${s}</div>`;
+            })() : ''}
+            ${item.notes ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;line-height:1.4;">${item.notes.slice(0,60)}${item.notes.length>60?'...':''}</div>` : ''}
             <div class="pipe-card-meta"><span class="pipe-tag genre" style="font-size:9px;">${item.genre}</span><span class="pipe-tag lang" style="font-size:9px;">${item.lang}</span><span class="pipe-tag priority-${(item.priority||'').toLowerCase()==='high'?'high':'med'}" style="font-size:9px;">${item.priority}</span></div>
             ${(item.script||item.gdoc) ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
               ${item.script ? `<button onclick="viewScript(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid rgba(232,244,58,0.3);background:rgba(232,244,58,0.06);color:var(--accent);cursor:pointer;">📄 Script</button>` : ''}
@@ -910,6 +993,11 @@ function saveEditCard() {
   showToast('Show updated successfully');
 }
 
+function quickAddToStage(stage) {
+  document.getElementById('show-stage').value = stage;
+  openModal('add-show');
+}
+
 function deleteCard(e, stage, idx) {
   e.stopPropagation();
   if(!confirm('Delete this show from the pipeline?')) return;
@@ -917,21 +1005,104 @@ function deleteCard(e, stage, idx) {
   showToast('Show removed from pipeline');
 }
 
+// ── Stage-aware Add Show form ─────────────────────────────────────────────────
+function updateAddShowForm() {
+  const stage = document.getElementById('show-stage').value;
+  const allFields = ['concept','beatsheet','contract','casting','scripting','production','postproduction','launched','marketing'];
+  allFields.forEach(f => { const el = document.getElementById('stage-fields-'+f); if(el) el.style.display='none'; });
+
+  const aiBtn = document.getElementById('show-greenlight-btn');
+  const map = {
+    'Concept':'concept','Beat Sheet':'beatsheet','Greenlight (Contract)':'contract',
+    'Casting':'casting','Scripting':'scripting','Production':'production',
+    'Post Production':'postproduction','Launched':'launched','Marketing':'marketing'
+  };
+  const key = map[stage];
+  if(key) { const el = document.getElementById('stage-fields-'+key); if(el) el.style.display='block'; }
+
+  // Show AI button only for Concept and Beat Sheet stages
+  if(aiBtn) aiBtn.style.display = ['Concept','Beat Sheet'].includes(stage) ? 'inline-flex' : 'none';
+}
+
+// Also update getGreenlightRec to handle Beat Sheet stage
+function getGreenlightRecModal() {
+  const stage = document.getElementById('show-stage').value;
+  if(stage === 'Beat Sheet') {
+    const title = document.getElementById('show-title')?.value.trim();
+    const genre = document.getElementById('show-genre')?.value || 'Romance / CEO';
+    const lang = document.getElementById('show-lang')?.value || 'Hindi';
+    const logline = document.getElementById('show-logline-bs')?.value.trim() || '';
+    const synopsis = document.getElementById('show-beatsheet')?.value.trim() || '';
+    const recEl = document.getElementById('show-recommendation');
+    if(!title) { alert('Please enter a show title first.'); return; }
+    recEl.style.display = 'block';
+    recEl.style.background = 'rgba(192,158,244,0.04)';
+    recEl.style.border = '1px solid rgba(192,158,244,0.15)';
+    recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:#c09ef4;margin-bottom:6px;">✦ BEAT SHEET ANALYSIS</div><div style="font-size:12px;color:var(--text3);">Analysing structure...</div>`;
+    const item = { title, genre, lang, logline, synopsis, script:'' };
+    setTimeout(() => analyseBeatSheet(item, recEl), 600);
+  } else {
+    getGreenlightRec('show');
+  }
+}
+
 function addShow() {
   const title = document.getElementById('show-title').value.trim();
   if(!title) return;
-  send('ADD_CARD',{stage:document.getElementById('show-stage').value, card:{
+  const stage = document.getElementById('show-stage').value;
+
+  // Collect stage-specific fields
+  const getVal = id => document.getElementById(id)?.value?.trim() || '';
+  const getRadio = name => document.querySelector(`input[name="${name}"]:checked`)?.value || '';
+
+  let logline = '', synopsis = '', script = '', gdoc = '', statusField = '', notes = '';
+
+  if(stage === 'Concept') {
+    logline = getVal('show-logline');
+    synopsis = getVal('show-synopsis');
+  } else if(stage === 'Beat Sheet') {
+    logline = getVal('show-logline-bs');
+    synopsis = getVal('show-beatsheet');
+  } else if(stage === 'Greenlight (Contract)') {
+    logline = getVal('show-logline-ct');
+    statusField = getRadio('show-contract-status');
+  } else if(stage === 'Casting') {
+    statusField = getRadio('show-casting-status');
+    notes = getVal('show-casting-notes');
+  } else if(stage === 'Scripting') {
+    gdoc = getVal('show-gdoc');
+    script = getVal('show-script');
+  } else if(stage === 'Production') {
+    statusField = getRadio('show-production-status');
+    notes = getVal('show-production-notes');
+  } else if(stage === 'Post Production') {
+    statusField = getRadio('show-post-status');
+    notes = getVal('show-post-notes');
+  } else if(stage === 'Launched') {
+    statusField = getVal('show-launch-date');
+    notes = getVal('show-launched-notes');
+  } else if(stage === 'Marketing') {
+    statusField = getRadio('show-marketing-status');
+    notes = getVal('show-marketing-notes');
+  }
+
+  send('ADD_CARD', { stage, card: {
     title,
-    genre:document.getElementById('show-genre').value,
-    lang:document.getElementById('show-lang').value,
-    priority:document.getElementById('show-priority').value,
-    logline:document.getElementById('show-logline').value.trim(),
-    synopsis:document.getElementById('show-synopsis').value.trim(),
-    gdoc:document.getElementById('show-gdoc').value.trim(),
-    script:document.getElementById('show-script').value.trim(),
+    genre: document.getElementById('show-genre').value,
+    lang: document.getElementById('show-lang').value,
+    priority: document.getElementById('show-priority').value,
+    logline, synopsis, script, gdoc,
+    status: statusField,
+    notes,
   }});
+
   closeModal('add-show');
-  ['show-title','show-logline','show-synopsis','show-gdoc','show-script'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  // Reset all text fields
+  ['show-title','show-logline','show-synopsis','show-logline-bs','show-beatsheet',
+   'show-logline-ct','show-casting-notes','show-gdoc','show-script',
+   'show-production-notes','show-post-notes','show-launched-notes','show-marketing-notes'
+  ].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('show-recommendation').style.display = 'none';
 }
 
 function viewScript(e, stage, idx) {
@@ -1470,232 +1641,27 @@ function analyseScriptStrict(item, recEl) {
       </div>
     </div>`;
 }
+// ── Greenlight Recommendation (now uses strict engine) ────────────────────────
 function getGreenlightRec(prefix) {
-  const title = document.getElementById(prefix+'-title').value.trim();
-  const genre = document.getElementById(prefix+'-genre').value;
-  const lang = document.getElementById(prefix+'-lang').value;
-  const logline = document.getElementById(prefix+'-logline').value.trim();
+  const title = document.getElementById(prefix+'-title')?.value.trim();
+  const genre = document.getElementById(prefix+'-genre')?.value || 'Romance / CEO';
+  const lang = document.getElementById(prefix+'-lang')?.value || 'Hindi';
+  const logline = document.getElementById(prefix+'-logline')?.value.trim() || '';
+  const synopsis = document.getElementById(prefix+'-synopsis')?.value.trim() || '';
   const script = document.getElementById(prefix+'-script')?.value.trim() || '';
   const recEl = document.getElementById(prefix+'-recommendation');
   if(!title) { alert('Please enter a show title first.'); return; }
+  if(!recEl) return;
 
   recEl.style.display = 'block';
-  recEl.style.background = 'rgba(232,244,58,0.04)';
-  recEl.style.border = '1px solid rgba(232,244,58,0.15)';
-  recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:6px;">✦ DEEP GREENLIGHT ANALYSIS</div><div style="font-size:12px;color:var(--text3);">Reading script and analysing all episodes...</div>`;
+  recEl.style.background = 'rgba(192,158,244,0.04)';
+  recEl.style.border = '1px solid rgba(192,158,244,0.15)';
+  recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:#c09ef4;margin-bottom:6px;">✦ STRICT CONCEPT ANALYSIS + COMPETITOR INTEL</div><div style="font-size:12px;color:var(--text3);">Analysing against live market data...</div>`;
 
-  setTimeout(() => {
-    let score = 50;
-    const reasons = [], risks = [], scriptNotes = [], marketingAngles = [];
-    let hook = '', competitor = '';
-    const hasScript = script.length > 200;
-
-    // ── GENRE SCORING ──
-    const genreMap = {
-      'Romance / CEO': { pts:20, note:'Top performing genre at 92% — highest market demand in India right now', compRisk:'Heavy competition from DramaBox & ReelShort — must differentiate with female POV or unique twist' },
-      'Crime / Revenge': { pts:18, note:'Second highest genre at 78% — revenge arcs drive strong binge behaviour', compRisk:'Kuku TV runs revenge arcs but skews 90% male — female revenge is wide open' },
-      'Family drama': { pts:15, note:'Solid performer at 70% — broad appeal across age groups and Tier-2 cities', compRisk:'Story TV and Kutingg have family content but quality is low — Fast TV can set higher bar' },
-      'Workplace thriller': { pts:12, note:'Growing genre at 62% — aspirational stories resonate with Tier-2 audiences', compRisk:'Kuku TV has IAS/aspirational content — female workplace protagonists are uncovered' },
-      'Historical': { pts:8, note:'Moderate demand at 48% — unique positioning but higher production cost', compRisk:'Almost no competition in historical micro-drama — first mover wins' },
-      'Supernatural': { pts:7, note:'Niche at 40% — works as a hook wrapper but needs strong emotional core underneath', compRisk:'GoodShort runs some supernatural — differentiate with grounded emotional stakes' },
-      'Comedy': { pts:5, note:'Lowest demand at 28% — hardest genre to execute in micro-drama format', compRisk:'Virtually no competition in comedy — but format makes timing very difficult' },
-    };
-    const gd = genreMap[genre] || { pts:8, note:'Genre has moderate market potential', compRisk:'Limited competition — first mover has advantage' };
-    score += gd.pts; reasons.push(gd.note);
-
-    // ── LANGUAGE SCORING ──
-    const langMap = {
-      'Hindi': { pts:15, note:'Hindi = largest addressable audience in India — essential for scale', risk:null },
-      'Telugu': { pts:14, note:'Telugu micro-drama is booming — strong loyal Tier-2 South India audience', risk:null },
-      'Tamil': { pts:13, note:'Tamil audience is highly loyal with strong repeat viewership patterns', risk:null },
-      'Bengali': { pts:12, note:'Bengali is underserved — significant first-mover opportunity in this language', risk:null },
-      'Kannada': { pts:11, note:'Kannada micro-drama is growing with limited platform competition', risk:null },
-      'Marathi': { pts:16, note:'Marathi is virtually untapped — near zero competition, massive loyal audience waiting', risk:null },
-      'Bhojpuri': { pts:18, note:'Bhojpuri is completely uncovered — first mover wins a massive loyal audience', risk:'Production talent pool is smaller in Bhojpuri — plan casting 6 weeks ahead' },
-      'Gujarati': { pts:17, note:'Gujarati micro-drama has zero competition — enormous underserved market', risk:'Discovery is slower without existing platform distribution — invest heavily in Meta ads' },
-    };
-    const ld = langMap[lang] || { pts:10, note:'Regional language gives strong differentiation from mainstream platforms', risk:null };
-    score += ld.pts; reasons.push(ld.note);
-    if(ld.risk) risks.push(ld.risk);
-
-    // ── LOGLINE ANALYSIS ──
-    const l = logline.toLowerCase();
-    const hasRevenge = l.includes('revenge') || l.includes('badla') || l.includes('destroy') || l.includes('ruin') || l.includes('back');
-    const hasIdentity = l.includes('identity') || l.includes('secret') || l.includes('real') || l.includes('truth') || l.includes('reveal') || l.includes('actually') || l.includes('infiltrat');
-    const hasBillionaire = l.includes('billionaire') || l.includes('ceo') || l.includes('rich') || l.includes('empire') || l.includes('wealthy') || l.includes('business');
-    const hasFemale = l.includes('woman') || l.includes('girl') || l.includes('daughter') || l.includes('mother') || l.includes('bahu') || l.includes('wife') || l.includes('she') || l.includes('her');
-    const hasFamily = l.includes('family') || l.includes('mother') || l.includes('daughter') || l.includes('sister') || l.includes('husband') || l.includes('son') || l.includes('marriage');
-    const hasTwist = l.includes('secret') || l.includes('hidden') || l.includes('truth') || l.includes('discover') || l.includes('reveal') || l.includes('actually') || l.includes('infiltrat') || l.includes('plan');
-    const hasDualTimeline = l.includes('years') || l.includes('past') || l.includes('ago') || l.includes('later') || l.includes('25') || l.includes('childhood');
-
-    if(hasRevenge) { score += 8; reasons.push('Revenge arc drives compulsive episode-to-episode watching — one of the strongest retention hooks'); }
-    if(hasIdentity) { score += 7; reasons.push('Identity reveal is the #1 performing cliffhanger structure across all platforms right now'); }
-    if(hasBillionaire) { score += 5; reasons.push('Wealth contrast storylines consistently outperform in audience testing — proven archetype'); }
-    if(hasFemale) { score += 10; reasons.push('Female protagonist directly targets the most underserved segment — 90%+ of platforms ignore women 18–35'); }
-    if(hasFamily) { score += 6; reasons.push('Family emotional stakes create deep investment and strong word-of-mouth sharing behaviour'); }
-    if(hasTwist) { score += 6; reasons.push('Twist/secret structure is essential for micro-drama — creates episode-end cliffhangers naturally'); }
-    if(hasDualTimeline) { score += 5; reasons.push('Dual timeline (past/present) structure is highly effective — creates mystery and emotional depth simultaneously'); }
-
-    // ── SCRIPT ANALYSIS ──
-    if(hasScript) {
-      const s = script.toLowerCase();
-      const epMatches = script.match(/EPISODE\s+\d+/gi) || [];
-      const epCount = epMatches.length;
-      const hasCliffhangers = (script.match(/FADE OUT|END CLIFFHANGER|SMASH CUT/gi) || []).length;
-      const hasFlashback = s.includes('flashback') || s.includes('flash back');
-      const hasDialogue = (script.match(/\n[A-Z ]+\n/g) || []).length;
-      const hasVillain = s.includes('villain') || s.includes('antagonist') || s.includes('threatening') || s.includes('blackmail') || s.includes('gun') || s.includes('threat');
-      const hasRomance = s.includes('love') || s.includes('romance') || s.includes('kiss') || s.includes('feelings');
-      const hasTwistEnding = s.includes('dna') || s.includes('real identity') || s.includes('beti') || s.includes('maa') || s.includes('mother');
-      const wordCount = script.split(' ').length;
-
-      score += Math.min(8, Math.floor(epCount / 5));
-
-      scriptNotes.push(`📺 ${epCount} episodes detected — ${epCount >= 40 ? 'strong season length for audience retention' : epCount >= 20 ? 'solid episode count' : 'consider expanding to 40+ episodes for better monetization'}`);
-      scriptNotes.push(`⚡ ${hasCliffhangers} episode-end cliffhangers found — ${hasCliffhangers >= epCount * 0.6 ? 'excellent cliffhanger density' : hasCliffhangers >= epCount * 0.3 ? 'good but add more cliffhangers in episodes 5-15 where drop-off is highest' : 'too few cliffhangers — audiences will stop watching — add a hook at the end of every episode'}`);
-      if(hasFlashback) scriptNotes.push('🕰️ Flashback sequences present — effective for backstory but keep under 20% of episode runtime to maintain pace');
-      if(hasVillain) { score += 4; scriptNotes.push('🎭 Clear villain/antagonist present — essential for micro-drama tension — make sure villain appears in episode 1'); }
-      if(hasTwistEnding) { score += 6; scriptNotes.push('🔄 Major identity/relationship twist in the script — this is your biggest marketing asset, tease it in episode 1 without revealing it'); }
-      if(hasRomance) scriptNotes.push('❤️ Romantic elements detected — balance with tension, don\'t let romance slow the pacing in episodes 3-8 where retention is most fragile');
-      scriptNotes.push(`📝 Script length: ~${wordCount.toLocaleString()} words — ${wordCount > 30000 ? 'well developed, rich material to work with' : wordCount > 15000 ? 'good depth' : 'consider expanding character backstories'}`);
-
-      // Pacing analysis
-      if(epCount > 0) {
-        const wordsPerEp = Math.round(wordCount / epCount);
-        scriptNotes.push(`⏱️ Average ~${wordsPerEp} words per episode — ${wordsPerEp < 300 ? 'very lean, good for fast pacing' : wordsPerEp < 600 ? 'good episode density' : 'episodes may be too dense — trim to keep under 90 seconds runtime'}`);
-      }
-
-      // Episode 1 specific check
-      const ep1Match = script.match(/EPISODE 1[\s\S]*?(?=EPISODE 2|$)/i);
-      if(ep1Match) {
-        const ep1 = ep1Match[0].toLowerCase();
-        const hasStrongOpen = ep1.includes('flashback') || ep1.includes('crying') || ep1.includes('confrontation') || ep1.includes('smash cut') || ep1.includes('night') || ep1.includes('baby');
-        scriptNotes.push(hasStrongOpen ? '✅ Episode 1 opens with strong emotional hook — critical for first-impression retention' : '⚠️ Episode 1 opening could be stronger — audience decides in first 30 seconds whether to continue');
-      }
-    } else {
-      scriptNotes.push('📋 No script pasted — paste your full script in the "Script" field for episode-by-episode analysis, pacing notes, and cliffhanger scoring');
-    }
-
-    // ── RISK ANALYSIS ──
-    if(!hasTwist && !hasRevenge && !hasIdentity) risks.push('Logline lacks a clear hook — episode 1 must open with confrontation or reveal within first 30 seconds');
-    if(genre === 'Comedy') risks.push('Comedy timing is extremely hard in 60-90 second episodes — test with 3 pilot episodes before full production');
-    if(genre === 'Historical') risks.push('Historical content requires higher costume and set spend — budget at least 40% more per episode');
-    if(lang === 'Hindi' && genre === 'Romance / CEO') risks.push('DramaBox and ReelShort are spending heavily in Hindi Romance/CEO — you need a distinct hook to cut through');
-    if(reasons.length < 3) reasons.push('Concept has solid market potential — execution and episode 1 hook will be the deciding factor');
-    if(risks.length === 0) risks.push('Main risk is speed — competitors launch 60-100 shows per month, move fast');
-
-    // ── MARKETING ANGLES ──
-    if(hasRevenge && hasFemale) {
-      marketingAngles.push('🎯 Target audience: Women 22–38, Hindi speaking, Tier-1 and Tier-2 cities');
-      marketingAngles.push('📱 Instagram Reel hook: Show the humiliation scene first. Cut to her 2 years later walking into the same room with power. No dialogue needed.');
-      marketingAngles.push('📣 Meta ad hook: "She was humiliated. She smiled. 2 years later she came back." — run this as a 15-second clip from episode 1');
-      marketingAngles.push('🖼️ Thumbnail direction: Close-up of female lead, half her face in shadow, half lit — convey duality of victim and avenger');
-      marketingAngles.push('🔑 Keyword targeting: "revenge drama", "strong female lead", "binge watch", "micro drama Hindi"');
-    } else if(hasIdentity || hasTwist) {
-      marketingAngles.push('🎯 Target audience: Women and men 20–40, mystery/thriller fans, binge watchers');
-      marketingAngles.push('📱 Instagram Reel hook: Show the twist moment — freeze frame — cut to black. "Who is she really?" Caption drives clicks.');
-      marketingAngles.push('📣 Meta ad hook: Clip of the identity reveal moment with "You won\'t believe who she is" — mystery drives installs');
-      marketingAngles.push('🖼️ Thumbnail direction: Two faces overlapping — hint at dual identity without giving it away');
-      marketingAngles.push('🔑 Keyword targeting: "identity reveal drama", "plot twist", "mystery drama Hindi", "micro drama"');
-    } else if(hasBillionaire) {
-      marketingAngles.push('🎯 Target audience: Women 18–35, romance fans, Tier-2 cities');
-      marketingAngles.push('📱 Instagram Reel hook: The moment she stands up to the billionaire — audiences love the power reversal');
-      marketingAngles.push('📣 Meta ad hook: "He had everything. She had nothing. Until she changed everything." — proven template');
-      marketingAngles.push('🖼️ Thumbnail direction: Contrast — her simple clothes vs his luxury setting — wealth gap visual');
-      marketingAngles.push('🔑 Keyword targeting: "billionaire romance", "CEO drama", "love story Hindi", "micro drama"');
-    } else {
-      marketingAngles.push('🎯 Target audience: Hindi drama fans 20–40, Tier-2 cities');
-      marketingAngles.push('📱 Instagram Reel hook: Use the most emotionally intense scene from episode 1 — keep it under 30 seconds');
-      marketingAngles.push('📣 Meta ad strategy: A/B test 3 different clips from episode 1 — let data tell you which hook converts best');
-      marketingAngles.push('🖼️ Thumbnail direction: Show maximum emotional intensity — tears, confrontation, or shock work best');
-      marketingAngles.push('🔑 Keyword targeting: "Hindi drama series", "emotional drama", "micro drama app"');
-    }
-
-    // ── COMPETITOR COMPARISON ──
-    const competitors = [
-      { name:'DramaBox', match: (genre === 'Romance / CEO' || genre === 'Crime / Revenge') ? 'HIGH' : 'LOW', color:'#f4903a',
-        doing: 'Running 18+ ad creatives per show. Heavy Meta + YouTube spend. Coin paywall at episode 8.',
-        gap: hasFemale ? 'DramaBox skews male — female lead gives you immediate differentiation' : 'DramaBox dominates Romance/CEO — you need a unique twist to stand out' },
-      { name:'Kuku TV', match: (lang === 'Hindi' || lang === 'Telugu' || lang === 'Tamil') ? 'HIGH' : 'MEDIUM', color:'#3af4b4',
-        doing: '60-100 shows/month. Audio IP validation from Kuku FM. AI dubbing for regional languages.',
-        gap: hasFemale ? 'Kuku TV is 90%+ male audience — female protagonist gives you a segment they cannot serve' : 'Kuku TV wins on volume — Fast TV must win on quality and distinctive hooks' },
-      { name:'ReelShort', match: (genre === 'Romance / CEO') ? 'HIGH' : 'LOW', color:'#f4c03a',
-        doing: 'Adapted English/Chinese IP into Hindi. 13-16 creatives per winning show. Coin model.',
-        gap: 'ReelShort uses adapted foreign IP — original Indian stories with authentic cultural nuance will outperform' },
-      { name:'MX Fatafat', match: (genre === 'Family drama' || genre === 'Romance / CEO') ? 'MEDIUM' : 'LOW', color:'#3a9ef4',
-        doing: 'Ad-supported free model. Amazon distribution. Co-creating with first-time creators.',
-        gap: 'MX Fatafat is free/ad-supported — Fast TV can win on premium content quality with subscription model' },
-    ];
-
-    // ── HOOK SUGGESTION ──
-    if(hasRevenge && hasFemale) hook = 'Open on her being publicly humiliated — zoom on her face as she quietly smiles. Cut to black. Title card: "2 years later." She walks in as the one with all the power.';
-    else if(hasDualTimeline && hasFemale) hook = 'Show a 16-year-old girl crying, singing a lullaby to a baby she\'s giving away. Hard cut to today — same woman, perfect life, same lullaby playing from somewhere in the house. She freezes.';
-    else if(hasIdentity) hook = 'Episode 1, first 10 seconds: show us the secret. Don\'t explain it. Cut to 25 years earlier and start the story. Audience watches the whole series knowing what\'s coming.';
-    else if(hasBillionaire) hook = 'He fires her in the first scene. She walks out without a word. Her phone rings. "Sir, she owns 40% of the company." He drops his pen.';
-    else if(hasFamily) hook = 'Family photo on the wall — warm, smiling, perfect. Camera slowly zooms. One face has been cut out. Who? And why?';
-    else hook = 'Start at the most tense moment of the entire series. No context. Then cut to "6 months earlier." Make the audience need to know how you got there.';
-
-    // ── SCORE CAP & VERDICT ──
-    score = Math.min(score, 97);
-    let verdict, vColor, vBg, vBorder;
-    if(score >= 75) { verdict = 'GREENLIGHT'; vColor = '#3af4b4'; vBg = 'rgba(58,244,180,0.08)'; vBorder = 'rgba(58,244,180,0.2)'; }
-    else if(score >= 55) { verdict = 'CAUTION'; vColor = '#f4c03a'; vBg = 'rgba(244,192,58,0.08)'; vBorder = 'rgba(244,192,58,0.2)'; }
-    else { verdict = 'PASS'; vColor = '#f43a6e'; vBg = 'rgba(244,58,110,0.08)'; vBorder = 'rgba(244,58,110,0.2)'; }
-    const headline = verdict === 'GREENLIGHT' ? 'Strong market fit — move to production' : verdict === 'CAUTION' ? 'Potential exists — needs stronger hook' : 'Weak market fit — reconsider concept';
-
-    recEl.style.background = vBg;
-    recEl.style.border = `1px solid ${vBorder}`;
-    recEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <div style="font-family:var(--display);font-size:18px;font-weight:800;color:${vColor};">${verdict}</div>
-        <div style="font-family:var(--mono);font-size:11px;color:${vColor};border:1px solid ${vBorder};padding:2px 10px;border-radius:3px;">${score}/100</div>
-        <div style="font-size:12px;color:var(--text2);font-style:italic;">${headline}</div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--green);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em;">Why it works</div>
-          ${reasons.slice(0,4).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;display:flex;gap:6px;line-height:1.5;"><span style="color:var(--green);flex-shrink:0;margin-top:1px;">+</span>${r}</div>`).join('')}
-        </div>
-        <div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--red);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em;">Watch out for</div>
-          ${risks.slice(0,3).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;display:flex;gap:6px;line-height:1.5;"><span style="color:var(--red);flex-shrink:0;margin-top:1px;">−</span>${r}</div>`).join('')}
-        </div>
-      </div>
-
-      ${scriptNotes.length > 0 ? `
-      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Script analysis — all ${script.match(/EPISODE\s+\d+/gi)?.length||'?'} episodes</div>
-        ${scriptNotes.map(n=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;line-height:1.5;">${n}</div>`).join('')}
-      </div>` : ''}
-
-      <div style="background:rgba(232,244,58,0.05);border:1px solid rgba(232,244,58,0.15);border-radius:6px;padding:12px;margin-bottom:12px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Suggested episode 1 hook</div>
-        <div style="font-size:12px;color:var(--text2);font-style:italic;line-height:1.6;">"${hook}"</div>
-      </div>
-
-      <div style="background:rgba(58,158,244,0.05);border:1px solid rgba(58,158,244,0.15);border-radius:6px;padding:12px;margin-bottom:12px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Marketing strategy</div>
-        ${marketingAngles.map(a=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;line-height:1.5;">${a}</div>`).join('')}
-      </div>
-
-      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:12px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Competitor comparison</div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
-          ${competitors.map(c=>`
-            <div style="background:var(--bg3);border-radius:5px;padding:8px 10px;border-left:2px solid ${c.color};">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                <span style="font-family:var(--display);font-size:12px;font-weight:700;color:${c.color};">${c.name}</span>
-                <span style="font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:2px;background:${c.match==='HIGH'?'rgba(244,58,110,0.15)':c.match==='MEDIUM'?'rgba(244,192,58,0.1)':'rgba(58,244,180,0.08)'};color:${c.match==='HIGH'?'var(--red)':c.match==='MEDIUM'?'var(--amber)':'var(--green)'};">${c.match} OVERLAP</span>
-              </div>
-              <div style="font-size:10px;color:var(--text3);margin-bottom:3px;line-height:1.4;">${c.doing}</div>
-              <div style="font-size:10px;color:${c.color};line-height:1.4;">Fast TV edge: ${c.gap}</div>
-            </div>`).join('')}
-        </div>
-      </div>`;
-
-  }, 800);
+  const item = { title, genre, lang, logline, synopsis, script };
+  setTimeout(() => analyseConceptStrict(item, recEl), 600);
 }
+
 
 // ── Live News Feed ────────────────────────────────────────────────────────────
 async function fetchLiveNews() {
