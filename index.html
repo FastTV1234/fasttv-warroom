@@ -1755,9 +1755,11 @@ function updateAlertStrip() {
   scroll.innerHTML = shuffled.map(a => `<div class="alert-item">${a}</div>`).join('');
 }
 
-// Update alert strip every 60 seconds
-updateAlertStrip();
-setInterval(updateAlertStrip, 60 * 1000);
+// Update alert strip every 60 seconds — called after detectedShows is available
+function startAlertStrip() {
+  updateAlertStrip();
+  setInterval(updateAlertStrip, 60 * 1000);
+}
 
 
 async function fetchLiveNews() {
@@ -2048,6 +2050,7 @@ if(kpiDelta) {
   const new2025 = PLATFORMS.filter(p => p.tierLabel && p.tierLabel.includes('2025')).length;
   kpiDelta.textContent = `+${new2026} new in 2026 · +${new2025} in 2025`;
 }
+startAlertStrip();
 connectWS();
 </script>
 </body>
