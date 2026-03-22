@@ -193,7 +193,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <div class="section-header"><div class="section-title">Mission Control</div><div class="section-sub">India Micro-Drama Market · Weekly Pulse</div></div>
   <div class="alert-strip">
     <div class="label">⚡ Alerts</div>
-    <div class="alert-scroll">
+    <div class="alert-scroll" id="alert-strip-scroll">
       <div class="alert-item">Story TV partners with Applause Entertainment (Sameer Nair) for premium microdrama slate — Mar 2026</div>
       <div class="alert-item">Meta-Ormax report: 89% of India viewers discover micro dramas through social feeds — massive ad opportunity</div>
       <div class="alert-item">Deloitte 2026: India micro-drama market to hit $7.8B — double of 2025's $3.8B</div>
@@ -1710,7 +1710,56 @@ function getGreenlightRec(prefix) {
 }
 
 
-// ── Live News Feed ────────────────────────────────────────────────────────────
+// ── Dynamic Alert Strip ───────────────────────────────────────────────────────
+const STATIC_ALERTS = [
+  'Story TV partners with Applause Entertainment (Sameer Nair) for premium microdrama slate — Mar 2026',
+  'Meta-Ormax report: 89% of India viewers discover micro dramas through social feeds — massive ad opportunity',
+  'Deloitte 2026: India micro-drama market to hit $7.8B — double of 2025\'s $3.8B',
+  'DashReels enters top 8 India micro-drama apps — new competitor to track',
+  'Pocket TV growing fast in India — multilingual, adapting novels to micro-drama format',
+  'Fast TV (Hungama) — premium Hindi belt micro-drama, subscription model, no coin gates',
+  'Story TV: 50M users, 1000+ titles, targeting 100M users in 2026 — fastest growing Indian platform',
+  'Kuku TV Veer Jindal: 4.6M impressions, 221 days running — shirtless billionaire formula still dominant',
+  'DramaBox Allie Allie: 2.9M impressions, 262 days — trapped female lead is their #1 performer',
+  '89% of micro-drama viewers discover content through social feeds — Meta is the primary acquisition channel',
+  'India micro-drama downloads grew 350M+ in 2025 — category outpaced all other entertainment apps',
+  'Kuku TV raising Series D — expanding to South East Asia markets in 2026',
+];
+
+let alertPool = [...STATIC_ALERTS];
+
+function updateAlertStrip() {
+  const scroll = document.getElementById('alert-strip-scroll');
+  if(!scroll) return;
+
+  // Merge live news into alert pool
+  const liveItems = document.querySelectorAll('#live-news-feed .alert-msg');
+  liveItems.forEach(item => {
+    const text = item.textContent.trim();
+    if(text && text.length > 20 && !alertPool.includes(text)) {
+      alertPool.push(text);
+    }
+  });
+
+  // Also add detected show headlines
+  detectedShows.slice(0, 5).forEach(s => {
+    const text = `New on ${s.platform}: "${s.title}" — ${s.genre} · ${s.date}`;
+    if(!alertPool.includes(text)) alertPool.push(text);
+  });
+
+  // Keep pool at max 30
+  if(alertPool.length > 30) alertPool = alertPool.slice(0, 30);
+
+  // Shuffle and pick 7 to show
+  const shuffled = [...alertPool].sort(() => Math.random() - 0.5).slice(0, 7);
+  scroll.innerHTML = shuffled.map(a => `<div class="alert-item">${a}</div>`).join('');
+}
+
+// Update alert strip every 60 seconds
+updateAlertStrip();
+setInterval(updateAlertStrip, 60 * 1000);
+
+
 async function fetchLiveNews() {
   const el = document.getElementById('live-news-feed');
   const updated = document.getElementById('news-last-updated');
