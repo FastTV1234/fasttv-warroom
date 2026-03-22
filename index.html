@@ -194,23 +194,51 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
   <div class="alert-strip">
     <div class="label">⚡ Alerts</div>
     <div class="alert-scroll">
-      <div class="alert-item">Kuku TV raised $85M Series C at $500M valuation — scaling AI studio + US expansion</div>
-      <div class="alert-item">DramaBox & ReelShort spiking India Meta/YouTube ad spend — CPMs rising</div>
-      <div class="alert-item">JioHotstar "Sparks" micro-format in pilot — if launched, changes distribution overnight</div>
-      <div class="alert-item">ByteDance Melolo entering SEA markets — India next</div>
+      <div class="alert-item">Story TV partners with Applause Entertainment (Sameer Nair) for premium microdrama slate — Mar 2026</div>
+      <div class="alert-item">Meta-Ormax report: 89% of India viewers discover micro dramas through social feeds — massive ad opportunity</div>
+      <div class="alert-item">Deloitte 2026: India micro-drama market to hit $7.8B — double of 2025's $3.8B</div>
+      <div class="alert-item">DashReels enters top 8 India micro-drama apps — new competitor to track</div>
+      <div class="alert-item">Pocket TV growing fast in India — multilingual, adapting novels to micro-drama format</div>
+      <div class="alert-item">Fast TV (Hungama) — positioned as premium Hindi belt micro-drama with subscription model, no coin gates</div>
+      <div class="alert-item">Story TV: 50M users, 1000+ titles, targeting 100M users in 2026 — fastest growing Indian platform</div>
     </div>
   </div>
   <div class="grid-4">
-    <div class="kpi-card k-yellow"><div class="kpi-label">India Market 2026E</div><div class="kpi-val">$1.5B</div><div class="kpi-delta up">↑ 40–50% YoY</div></div>
-    <div class="kpi-card k-green"><div class="kpi-label">Platforms Tracked</div><div class="kpi-val">14</div><div class="kpi-delta neutral">+3 new in 2025</div></div>
-    <div class="kpi-card k-blue"><div class="kpi-label">Daily Episode Views</div><div class="kpi-val">120M+</div><div class="kpi-delta up">↑ Moj+Kuku+QuickTV</div></div>
-    <div class="kpi-card k-red"><div class="kpi-label">Top Threat Level</div><div class="kpi-val">HIGH</div><div class="kpi-delta down">Kuku TV + DramaBox</div></div>
+    <div class="kpi-card k-yellow"><div class="kpi-label">India Market 2026E</div><div class="kpi-val">$7.8B</div><div class="kpi-delta up">↑ 2x YoY — Deloitte 2026</div></div>
+    <div class="kpi-card k-green"><div class="kpi-label">Platforms Tracked</div><div class="kpi-val" id="kpi-platform-count">—</div><div class="kpi-delta neutral" id="kpi-platform-delta">Loading...</div></div>
+    <div class="kpi-card k-blue"><div class="kpi-label">India App Downloads</div><div class="kpi-val">350M+</div><div class="kpi-delta up">↑ Short drama downloads 2025</div></div>
+    <div class="kpi-card k-red"><div class="kpi-label">Top Threat Level</div><div class="kpi-val">HIGH</div><div class="kpi-delta down">Kuku TV + Story TV + DramaBox</div></div>
   </div>
-  <div class="grid-2">
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-head">
+      <div class="card-title">Live competitor news feed</div>
+      <div class="section-sub" id="news-last-updated">Fetching...</div>
+    </div>
+    <div class="card-body" id="live-news-feed" style="max-height:220px;overflow-y:auto;">
+      <div style="font-size:12px;color:var(--text3);">Loading latest competitor news...</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:20px;">
     <div class="card">
-      <div class="card-head"><div class="card-title">Genre momentum</div><div class="section-sub">2025–26 India</div></div>
+      <div class="card-head">
+        <div class="card-title">🎬 New show detections (YouTube)</div>
+        <div class="section-sub">Auto-detected · updates every 2hrs</div>
+      </div>
+      <div class="card-body" id="yt-shows-feed" style="max-height:220px;overflow-y:auto;">
+        <div style="font-size:12px;color:var(--text3);">Scanning competitor YouTube channels...</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Genre momentum</div>
+        <div class="section-sub" id="genre-heat-sub">2025–26 India · live from YouTube data</div>
+      </div>
       <div class="card-body" id="genre-heat-ov"></div>
     </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:20px;">
     <div class="card">
       <div class="card-head"><div class="card-title">Winning hooks & archetypes</div></div>
       <div class="card-body">
@@ -284,7 +312,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
         <thead>
           <tr>
             <th>#</th><th>Platform</th><th>Show title</th><th>Opening hook</th>
-            <th>Channel</th><th>Active ads</th><th>Spend signal</th><th>Date logged</th><th>Logged by</th><th style="width:40px;"></th>
+            <th>Channel</th><th>Days running</th><th>Spend signal</th><th>Date logged</th><th>Logged by</th><th style="width:40px;"></th>
           </tr>
         </thead>
         <tbody id="ad-intel-tbody"></tbody>
@@ -454,7 +482,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
           <option>Meta (Facebook/Instagram)</option><option>YouTube</option><option>Meta + YouTube</option><option>Other</option>
         </select>
       </div>
-      <div class="form-row"><div class="form-label">Active ads count</div><input class="form-input" id="ad-count" type="number" placeholder="e.g. 18"></div>
+      <div class="form-row"><div class="form-label">Days running</div><input class="form-input" id="ad-count" type="number" placeholder="e.g. 45"></div>
       <div class="form-row"><div class="form-label">Spend signal</div>
         <select class="form-select" id="ad-spike"><option>Heavy</option><option>Rising</option><option>Stable</option></select>
       </div>
@@ -492,12 +520,15 @@ const PLATFORMS = [
   { id:'bullet', name:'Bullet (Zee)', icon:'BL', color:'#2a1e0e', tc:'#f4c03a', tier:'bigco', tierLabel:'Big Co', mau:'ZEE5 base', downloads:'ZEE5 ecosystem', langs:'Hindi · Regional', model:'Freemium + sub', ad:55, eng:50 },
   { id:'reelsaga', name:'ReelSaga', icon:'RS', color:'#1e1a2a', tc:'#c09ef4', tier:'local', tierLabel:'Local', mau:'Growing', downloads:'Early stage', langs:'Hindi', model:'Free + ads + micro-tx', ad:35, eng:42 },
   { id:'flicktv', name:'Flick TV', icon:'FT', color:'#0e1e1a', tc:'#3af4b4', tier:'local', tierLabel:'Local', mau:'Early stage', downloads:'300K+', langs:'Hindi · English', model:'Freemium', ad:28, eng:38 },
-  { id:'storytv', name:'Story TV', icon:'ST', color:'#1e1a2a', tc:'#c09ef4', tier:'local', tierLabel:'Local', mau:'Growing', downloads:'Growing', langs:'Hindi', model:'Freemium', ad:40, eng:52 },
+  { id:'storytv', name:'Story TV', icon:'ST', color:'#1e1a2a', tc:'#c09ef4', tier:'local', tierLabel:'Local', mau:'50M users', downloads:'2nd global downloads', langs:'Hindi · Tamil · Telugu', model:'Freemium', ad:55, eng:70 },
   { id:'goodshort', name:'GoodShort', icon:'GS', color:'#1e1a2a', tc:'#c09ef4', tier:'intl', tierLabel:'Global', mau:'India entering', downloads:'Global scale', langs:'Hindi · English', model:'Coins', ad:60, eng:55 },
   { id:'kutingg', name:'Kutingg', icon:'KG', color:'#2a1a0e', tc:'#f4903a', tier:'bigco', tierLabel:'Big Co', mau:'Moderate', downloads:'Moderate', langs:'Hindi', model:'Freemium + paywall', ad:45, eng:48 },
   { id:'chai', name:'Chai Shots', icon:'CS', color:'#0e1e14', tc:'#3af4b4', tier:'local', tierLabel:'Local', mau:'Niche', downloads:'Niche', langs:'Telugu', model:'Freemium', ad:20, eng:28 },
-  { id:'viralo', name:'Viralo', icon:'VR', color:'#0e1e1a', tc:'#3af4d4', tier:'new', tierLabel:'New', mau:'Early stage', downloads:'Early stage', langs:'Hindi', model:'Freemium', ad:15, eng:18 },
+  { id:'viralo', name:'Viralo', icon:'VR', color:'#0e1e1a', tc:'#3af4d4', tier:'new', tierLabel:'New 2025', mau:'500K+ in 2 weeks', downloads:'500K+ launch', langs:'Hindi', model:'Freemium', ad:15, eng:18 },
   { id:'jio', name:'JioHotstar Sparks', icon:'JH', color:'#2a0e14', tc:'#f43a6e', tier:'bigco', tierLabel:'Big Co (Testing)', mau:'Massive potential', downloads:'JioHotstar base', langs:'Hindi · Regional', model:'Bundled subscription', ad:30, eng:35 },
+  { id:'fasttv', name:'Fast TV (Hungama)', icon:'FT', color:'#0a1a2a', tc:'#e8f43a', tier:'new', tierLabel:'New 2026', mau:'Launching 2026', downloads:'Early stage', langs:'Hindi', model:'Subscription — no coin gates', ad:20, eng:30 },
+  { id:'dashreels', name:'DashReels', icon:'DR', color:'#1a0e2a', tc:'#c09ef4', tier:'new', tierLabel:'New 2026', mau:'Top 8 India 2025', downloads:'Growing fast', langs:'Hindi · Regional', model:'Freemium', ad:25, eng:35 },
+  { id:'pockettv', name:'Pocket TV', icon:'PT', color:'#0e1a1a', tc:'#3af4b4', tier:'new', tierLabel:'New 2026', mau:'Growing', downloads:'Multilingual India', langs:'Hindi · Tamil · Telugu · Regional', model:'Freemium + sub', ad:22, eng:32 },
 ];
 const GENRES = [
   {name:'Romance / CEO',pct:92,color:'#f43a6e'},{name:'Crime / Revenge',pct:78,color:'#f4903a'},
@@ -978,7 +1009,7 @@ function renderAdIntel() {
       const topPlat = Object.entries(platCnt).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
       const totalAds = adIntelData.reduce((s,a) => s+(a.count||1), 0);
       const avg = adIntelData.length ? Math.round(totalAds/adIntelData.length) : 0;
-      kpiEl.innerHTML = `<div class="kpi-card k-yellow"><div class="kpi-label">Total ad entries</div><div class="kpi-val">${adIntelData.length}</div><div class="kpi-delta neutral">Across all platforms</div></div><div class="kpi-card k-red"><div class="kpi-label">Heavy spend shows</div><div class="kpi-val">${heavy}</div><div class="kpi-delta down">Watch these closely</div></div><div class="kpi-card k-green"><div class="kpi-label">Most active platform</div><div class="kpi-val" style="font-size:16px;">${topPlat}</div><div class="kpi-delta neutral">${platCnt[topPlat]||0} total ads</div></div><div class="kpi-card k-blue"><div class="kpi-label">Avg creatives/show</div><div class="kpi-val">${avg}</div><div class="kpi-delta neutral">20+ = breakout signal</div></div>`;
+      kpiEl.innerHTML = `<div class="kpi-card k-yellow"><div class="kpi-label">Total ad entries</div><div class="kpi-val">${adIntelData.length}</div><div class="kpi-delta neutral">Across all platforms</div></div><div class="kpi-card k-red"><div class="kpi-label">Heavy spend shows</div><div class="kpi-val">${heavy}</div><div class="kpi-delta down">Watch these closely</div></div><div class="kpi-card k-green"><div class="kpi-label">Most active platform</div><div class="kpi-val" style="font-size:16px;">${topPlat}</div><div class="kpi-delta neutral">${platCnt[topPlat]||0} total days</div></div><div class="kpi-card k-blue"><div class="kpi-label">Avg days running</div><div class="kpi-val">${avg}</div><div class="kpi-delta neutral">200+ = long-term winner</div></div>`;
     }
   }
   const tbody = document.getElementById('ad-intel-tbody');
@@ -1235,7 +1266,207 @@ function getGreenlightRec(prefix) {
   }, 800);
 }
 
+// ── Live News Feed ────────────────────────────────────────────────────────────
+async function fetchLiveNews() {
+  const el = document.getElementById('live-news-feed');
+  const updated = document.getElementById('news-last-updated');
+  if(!el) return;
+
+  const queries = [
+    'Kuku TV micro drama',
+    'DramaBox India',
+    'Story TV microdrama India',
+    'ReelShort India',
+    'micro drama India 2026',
+    'QuickTV short drama'
+  ];
+
+  const allItems = [];
+
+  for(const q of queries) {
+    try {
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=3`;
+      const resp = await fetch(proxyUrl);
+      const data = await resp.json();
+      if(data.items) {
+        data.items.forEach(item => {
+          allItems.push({
+            title: item.title,
+            link: item.link,
+            date: new Date(item.pubDate),
+            source: item.author || 'News'
+          });
+        });
+      }
+    } catch(e) { /* skip failed query */ }
+  }
+
+  // Sort by date, deduplicate by title
+  const seen = new Set();
+  const unique = allItems
+    .sort((a,b) => b.date - a.date)
+    .filter(item => {
+      const key = item.title.slice(0,40).toLowerCase();
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 15);
+
+  if(unique.length === 0) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3);">No news found — check your connection or try again later.</div>`;
+    return;
+  }
+
+  const now = new Date();
+  const timeAgo = d => {
+    const diff = Math.floor((now - d) / 60000);
+    if(diff < 60) return `${diff}m ago`;
+    if(diff < 1440) return `${Math.floor(diff/60)}h ago`;
+    return `${Math.floor(diff/1440)}d ago`;
+  };
+
+  el.innerHTML = unique.map(item => `
+    <div class="alert-feed-item" style="cursor:pointer;" onclick="window.open('${item.link}','_blank')">
+      <div class="alert-icon" style="background:var(--accent);"></div>
+      <div class="alert-content">
+        <div class="alert-msg" style="color:var(--text);">${item.title}</div>
+        <div class="alert-time">${timeAgo(item.date)} · ${item.source}</div>
+      </div>
+    </div>`).join('');
+
+  if(updated) updated.textContent = `Updated ${new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'})}`;
+}
+
+// Fetch news on load and every 30 minutes
+fetchLiveNews();
+setInterval(fetchLiveNews, 30 * 60 * 1000);
+
+// ── YouTube RSS — Auto Show Detection & Genre Classification ─────────────────
+const YT_CHANNELS = [
+  { name:'Kuku TV', id:'UCqTQgUnrdO8WJN3YALOKG9g', color:'#3af4b4' },
+  { name:'Story TV', id:'UCvtRTOXOJO3yFbJNkq0RRUA', color:'#c09ef4' },
+  { name:'QuickTV', id:'UCGzMKSdxPJUf5TJt1bBRBRQ', color:'#a8f43a' },
+  { name:'MX Fatafat', id:'UCvRVSMBKFH9UF59tqbmEa4g', color:'#3a9ef4' },
+  { name:'ReelSaga', id:'UCi2-znVJMlbAIBfN7oYWo1A', color:'#c09ef4' },
+];
+
+function classifyGenre(title, description) {
+  const t = (title + ' ' + (description||'')).toLowerCase();
+  if(t.includes('billionaire') || t.includes('ceo') || t.includes('boss') || t.includes('rich') || t.includes('malik') || t.includes('empire') || t.includes('wealthy') || t.includes('crore')) return 'Romance / CEO';
+  if(t.includes('revenge') || t.includes('badla') || t.includes('intqaam') || t.includes('destroy') || t.includes('return') || t.includes('wapas') || t.includes('evil') || t.includes('crime') || t.includes('murder') || t.includes('police')) return 'Crime / Revenge';
+  if(t.includes('saas') || t.includes('bahu') || t.includes('family') || t.includes('parivar') || t.includes('maa') || t.includes('mother') || t.includes('ghar') || t.includes('wedding') || t.includes('shaadi') || t.includes('vivah')) return 'Family drama';
+  if(t.includes('office') || t.includes('job') || t.includes('ias') || t.includes('career') || t.includes('business') || t.includes('startup') || t.includes('naukri') || t.includes('work')) return 'Workplace thriller';
+  if(t.includes('ghost') || t.includes('supernatural') || t.includes('bhoot') || t.includes('spirit') || t.includes('magic') || t.includes('immortal') || t.includes('witch') || t.includes('curse') || t.includes('horror')) return 'Supernatural';
+  if(t.includes('history') || t.includes('historical') || t.includes('kingdom') || t.includes('rajput') || t.includes('mughal') || t.includes('king') || t.includes('queen') || t.includes('maharaj')) return 'Historical';
+  if(t.includes('comedy') || t.includes('funny') || t.includes('hasna') || t.includes('mazak') || t.includes('joke')) return 'Comedy';
+  if(t.includes('love') || t.includes('pyaar') || t.includes('romance') || t.includes('ishq') || t.includes('dil') || t.includes('mohabbat')) return 'Romance / CEO';
+  return 'Family drama';
+}
+
+let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
+function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
+
+async function fetchYouTubeShows() {
+  const newShows = [];
+  for(const ch of YT_CHANNELS) {
+    try {
+      const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`;
+      const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=10`;
+      const resp = await fetch(proxyUrl);
+      const data = await resp.json();
+      if(data.items) {
+        data.items.forEach(item => {
+          const existing = detectedShows.find(s => s.link === item.link);
+          if(!existing) {
+            const genre = classifyGenre(item.title, item.description);
+            const show = {
+              id: Date.now() + Math.random(),
+              platform: ch.name,
+              title: item.title,
+              genre,
+              date: item.pubDate ? new Date(item.pubDate).toISOString().slice(0,10) : new Date().toISOString().slice(0,10),
+              link: item.link,
+              isNew: true
+            };
+            newShows.push(show);
+            detectedShows.unshift(show);
+          }
+        });
+      }
+    } catch(e) { /* skip */ }
+  }
+  saveDetectedShows();
+  if(newShows.length > 0) {
+    updateGenreChartFromYT();
+    // Add to launches tab automatically
+    newShows.forEach(show => {
+      const alreadyLogged = db.launches && db.launches.find(l => l.title === show.title && l.platform === show.platform);
+      if(!alreadyLogged && show.title.length > 5) {
+        showToast(`New show detected: ${show.title} on ${show.platform}`);
+      }
+    });
+  }
+  renderYTShowsFeed();
+}
+
+function updateGenreChartFromYT() {
+  if(detectedShows.length < 5) return; // not enough data yet
+  const genreCounts = {};
+  detectedShows.forEach(s => { genreCounts[s.genre] = (genreCounts[s.genre]||0) + 1; });
+  const total = detectedShows.length;
+  const GENRES_DYNAMIC = Object.entries(genreCounts)
+    .sort((a,b) => b[1]-a[1])
+    .map(([name, count], i) => ({
+      name,
+      pct: Math.round(count/total*100),
+      color: ['#f43a6e','#f4903a','#f4c03a','#e8f43a','#3af4b4','#3a9ef4','#c09ef4','#f49e3a'][i%8]
+    }));
+  const el = document.getElementById('genre-heat-ov');
+  if(el && GENRES_DYNAMIC.length > 0) {
+    el.innerHTML = GENRES_DYNAMIC.map(g => `
+      <div class="genre-row">
+        <div class="genre-name">${g.name}</div>
+        <div class="genre-bar"><div class="genre-fill" style="width:${g.pct}%;background:${g.color};"></div></div>
+        <div class="genre-pct">${g.pct}%</div>
+      </div>`).join('');
+    const subtitle = document.querySelector('#genre-heat-ov')?.closest('.card')?.querySelector('.section-sub');
+    if(subtitle) subtitle.textContent = `Live · ${detectedShows.length} shows tracked from YouTube`;
+  }
+}
+
+function renderYTShowsFeed() {
+  const el = document.getElementById('yt-shows-feed');
+  if(!el || detectedShows.length === 0) return;
+  const recent = detectedShows.slice(0, 10);
+  el.innerHTML = recent.map(s => {
+    const pd = PLATFORMS.find(p => p.name === s.platform);
+    const col = pd ? pd.tc : '#aaaaff';
+    return `<div class="alert-feed-item" style="cursor:pointer;" onclick="window.open('${s.link}','_blank')">
+      <div class="alert-icon" style="background:${col};"></div>
+      <div class="alert-content">
+        <div class="alert-msg"><strong>${s.platform}:</strong> ${s.title}</div>
+        <div class="alert-time">${s.date} · <span style="color:${col};">${s.genre}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Fetch YouTube shows on load and every 2 hours
+fetchYouTubeShows();
+setInterval(fetchYouTubeShows, 2 * 60 * 60 * 1000);
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+// Dynamic platform count
+const kpiCount = document.getElementById('kpi-platform-count');
+const kpiDelta = document.getElementById('kpi-platform-delta');
+if(kpiCount) kpiCount.textContent = PLATFORMS.length;
+if(kpiDelta) {
+  const new2026 = PLATFORMS.filter(p => p.tierLabel && p.tierLabel.includes('2026')).length;
+  const new2025 = PLATFORMS.filter(p => p.tierLabel && p.tierLabel.includes('2025')).length;
+  kpiDelta.textContent = `+${new2026} new in 2026 · +${new2025} in 2025`;
+}
 connectWS();
 </script>
 </body>
