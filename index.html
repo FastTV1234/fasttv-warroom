@@ -817,141 +817,231 @@ function deleteLaunch(id) {
   send('DELETE_LAUNCH',{id});
 }
 
-// ── AI Greenlight Recommendation (rule-based engine) ─────────────────────────
+// ── Deep Greenlight Analysis Engine ──────────────────────────────────────────
 function getGreenlightRec(prefix) {
   const title = document.getElementById(prefix+'-title').value.trim();
   const genre = document.getElementById(prefix+'-genre').value;
   const lang = document.getElementById(prefix+'-lang').value;
   const logline = document.getElementById(prefix+'-logline').value.trim();
+  const script = document.getElementById(prefix+'-script')?.value.trim() || '';
   const recEl = document.getElementById(prefix+'-recommendation');
   if(!title) { alert('Please enter a show title first.'); return; }
 
   recEl.style.display = 'block';
   recEl.style.background = 'rgba(232,244,58,0.04)';
   recEl.style.border = '1px solid rgba(232,244,58,0.15)';
-  recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:6px;">✦ GREENLIGHT ANALYSIS</div><div style="font-size:12px;color:var(--text3);">Analysing...</div>`;
+  recEl.innerHTML = `<div style="font-family:var(--mono);font-size:10px;color:var(--accent);margin-bottom:6px;">✦ DEEP GREENLIGHT ANALYSIS</div><div style="font-size:12px;color:var(--text3);">Reading script and analysing all episodes...</div>`;
 
   setTimeout(() => {
     let score = 50;
-    const reasons = [];
-    const risks = [];
-    let hook = '';
-    let competitor = '';
+    const reasons = [], risks = [], scriptNotes = [], marketingAngles = [];
+    let hook = '', competitor = '';
+    const hasScript = script.length > 200;
 
-    // Genre scoring
-    const genreScores = {
-      'Romance / CEO': { pts: 20, note: 'Top performing genre at 92% — highest market demand in India right now' },
-      'Crime / Revenge': { pts: 18, note: 'Second highest genre at 78% — revenge arcs drive strong binge behaviour' },
-      'Family drama': { pts: 15, note: 'Solid performer at 70% — broad audience appeal across age groups' },
-      'Workplace thriller': { pts: 12, note: 'Growing genre at 62% — aspirational stories resonate with Tier-2 audiences' },
-      'Historical': { pts: 8, note: 'Moderate demand at 48% — production cost is higher, proceed with caution' },
-      'Supernatural': { pts: 7, note: 'Niche at 40% — works well as a hook but needs strong emotional core' },
-      'Comedy': { pts: 5, note: 'Lowest demand at 28% — very hard to make work in micro-drama format' },
+    // ── GENRE SCORING ──
+    const genreMap = {
+      'Romance / CEO': { pts:20, note:'Top performing genre at 92% — highest market demand in India right now', compRisk:'Heavy competition from DramaBox & ReelShort — must differentiate with female POV or unique twist' },
+      'Crime / Revenge': { pts:18, note:'Second highest genre at 78% — revenge arcs drive strong binge behaviour', compRisk:'Kuku TV runs revenge arcs but skews 90% male — female revenge is wide open' },
+      'Family drama': { pts:15, note:'Solid performer at 70% — broad appeal across age groups and Tier-2 cities', compRisk:'Story TV and Kutingg have family content but quality is low — Fast TV can set higher bar' },
+      'Workplace thriller': { pts:12, note:'Growing genre at 62% — aspirational stories resonate with Tier-2 audiences', compRisk:'Kuku TV has IAS/aspirational content — female workplace protagonists are uncovered' },
+      'Historical': { pts:8, note:'Moderate demand at 48% — unique positioning but higher production cost', compRisk:'Almost no competition in historical micro-drama — first mover wins' },
+      'Supernatural': { pts:7, note:'Niche at 40% — works as a hook wrapper but needs strong emotional core underneath', compRisk:'GoodShort runs some supernatural — differentiate with grounded emotional stakes' },
+      'Comedy': { pts:5, note:'Lowest demand at 28% — hardest genre to execute in micro-drama format', compRisk:'Virtually no competition in comedy — but format makes timing very difficult' },
     };
-    const genreData = genreScores[genre] || { pts: 8, note: 'Genre has moderate market potential' };
-    score += genreData.pts;
-    reasons.push(genreData.note);
+    const gd = genreMap[genre] || { pts:8, note:'Genre has moderate market potential', compRisk:'Limited competition — first mover has advantage' };
+    score += gd.pts; reasons.push(gd.note);
 
-    // Language scoring
-    const langScores = {
-      'Hindi': { pts: 15, note: 'Hindi is the dominant language — largest addressable audience in India', risk: null },
-      'Telugu': { pts: 14, note: 'Telugu micro-drama is booming — strong Tier-2 South India audience', risk: null },
-      'Tamil': { pts: 13, note: 'Tamil audience is highly loyal — strong repeat viewership', risk: null },
-      'Bengali': { pts: 12, note: 'Bengali is underserved — good first-mover opportunity', risk: null },
-      'Kannada': { pts: 11, note: 'Kannada is growing — limited competition from other platforms', risk: null },
-      'Marathi': { pts: 16, note: 'Marathi is virtually untapped — almost zero competition, huge opportunity', risk: null },
-      'Bhojpuri': { pts: 18, note: 'Bhojpuri is completely untapped — first mover wins massive loyal audience', risk: 'Production talent pool is smaller — plan casting early' },
-      'Gujarati': { pts: 17, note: 'Gujarati micro-drama has zero competition — massive underserved audience', risk: 'Distribution discovery may be slower — invest in targeted ads' },
+    // ── LANGUAGE SCORING ──
+    const langMap = {
+      'Hindi': { pts:15, note:'Hindi = largest addressable audience in India — essential for scale', risk:null },
+      'Telugu': { pts:14, note:'Telugu micro-drama is booming — strong loyal Tier-2 South India audience', risk:null },
+      'Tamil': { pts:13, note:'Tamil audience is highly loyal with strong repeat viewership patterns', risk:null },
+      'Bengali': { pts:12, note:'Bengali is underserved — significant first-mover opportunity in this language', risk:null },
+      'Kannada': { pts:11, note:'Kannada micro-drama is growing with limited platform competition', risk:null },
+      'Marathi': { pts:16, note:'Marathi is virtually untapped — near zero competition, massive loyal audience waiting', risk:null },
+      'Bhojpuri': { pts:18, note:'Bhojpuri is completely uncovered — first mover wins a massive loyal audience', risk:'Production talent pool is smaller in Bhojpuri — plan casting 6 weeks ahead' },
+      'Gujarati': { pts:17, note:'Gujarati micro-drama has zero competition — enormous underserved market', risk:'Discovery is slower without existing platform distribution — invest heavily in Meta ads' },
     };
-    const langData = langScores[lang] || { pts: 10, note: 'Regional language gives differentiation from mainstream platforms', risk: null };
-    score += langData.pts;
-    reasons.push(langData.note);
-    if(langData.risk) risks.push(langData.risk);
+    const ld = langMap[lang] || { pts:10, note:'Regional language gives strong differentiation from mainstream platforms', risk:null };
+    score += ld.pts; reasons.push(ld.note);
+    if(ld.risk) risks.push(ld.risk);
 
-    // Logline analysis
+    // ── LOGLINE ANALYSIS ──
     const l = logline.toLowerCase();
-    const hasRevenge = l.includes('revenge') || l.includes('badla') || l.includes('destroy') || l.includes('ruin');
-    const hasIdentity = l.includes('identity') || l.includes('secret') || l.includes('real') || l.includes('truth') || l.includes('reveal') || l.includes('actually');
-    const hasBillionaire = l.includes('billionaire') || l.includes('ceo') || l.includes('rich') || l.includes('empire') || l.includes('wealthy');
+    const hasRevenge = l.includes('revenge') || l.includes('badla') || l.includes('destroy') || l.includes('ruin') || l.includes('back');
+    const hasIdentity = l.includes('identity') || l.includes('secret') || l.includes('real') || l.includes('truth') || l.includes('reveal') || l.includes('actually') || l.includes('infiltrat');
+    const hasBillionaire = l.includes('billionaire') || l.includes('ceo') || l.includes('rich') || l.includes('empire') || l.includes('wealthy') || l.includes('business');
     const hasFemale = l.includes('woman') || l.includes('girl') || l.includes('daughter') || l.includes('mother') || l.includes('bahu') || l.includes('wife') || l.includes('she') || l.includes('her');
-    const hasFamily = l.includes('family') || l.includes('mother') || l.includes('daughter') || l.includes('sister') || l.includes('husband') || l.includes('son');
-    const hasLove = l.includes('love') || l.includes('romance') || l.includes('marry') || l.includes('wedding') || l.includes('marriage') || l.includes('pyaar');
-    const hasTwist = l.includes('secret') || l.includes('hidden') || l.includes('truth') || l.includes('real') || l.includes('discover') || l.includes('reveal') || l.includes('actually');
+    const hasFamily = l.includes('family') || l.includes('mother') || l.includes('daughter') || l.includes('sister') || l.includes('husband') || l.includes('son') || l.includes('marriage');
+    const hasTwist = l.includes('secret') || l.includes('hidden') || l.includes('truth') || l.includes('discover') || l.includes('reveal') || l.includes('actually') || l.includes('infiltrat') || l.includes('plan');
+    const hasDualTimeline = l.includes('years') || l.includes('past') || l.includes('ago') || l.includes('later') || l.includes('25') || l.includes('childhood');
 
-    if(hasRevenge) { score += 8; reasons.push('Revenge arc is one of the strongest hooks in India micro-drama — drives compulsive watching'); }
-    if(hasIdentity) { score += 7; reasons.push('Identity reveal structure is the #1 cliffhanger style working across all platforms right now'); }
-    if(hasBillionaire) { score += 5; reasons.push('Billionaire/CEO archetype is proven — audiences consistently respond to wealth contrast stories'); }
-    if(hasFemale) { score += 10; reasons.push('Female protagonist targets the most underserved segment — 90%+ of platforms ignore women 18–35'); }
-    if(hasFamily) { score += 6; reasons.push('Family dynamics create emotional investment and repeat viewership — especially strong in Tier-2 cities'); }
-    if(hasLove && (genre === 'Romance / CEO' || genre === 'Family drama')) { score += 5; }
-    if(hasTwist) { score += 6; reasons.push('Twist/secret structure creates strong episode-end cliffhangers — essential for micro-drama retention'); }
+    if(hasRevenge) { score += 8; reasons.push('Revenge arc drives compulsive episode-to-episode watching — one of the strongest retention hooks'); }
+    if(hasIdentity) { score += 7; reasons.push('Identity reveal is the #1 performing cliffhanger structure across all platforms right now'); }
+    if(hasBillionaire) { score += 5; reasons.push('Wealth contrast storylines consistently outperform in audience testing — proven archetype'); }
+    if(hasFemale) { score += 10; reasons.push('Female protagonist directly targets the most underserved segment — 90%+ of platforms ignore women 18–35'); }
+    if(hasFamily) { score += 6; reasons.push('Family emotional stakes create deep investment and strong word-of-mouth sharing behaviour'); }
+    if(hasTwist) { score += 6; reasons.push('Twist/secret structure is essential for micro-drama — creates episode-end cliffhangers naturally'); }
+    if(hasDualTimeline) { score += 5; reasons.push('Dual timeline (past/present) structure is highly effective — creates mystery and emotional depth simultaneously'); }
 
-    // Risk analysis
-    if(!hasTwist && !hasRevenge && !hasIdentity) risks.push('Logline lacks a clear hook or twist — episode 1 must establish a strong cliffhanger within 90 seconds');
-    if(genre === 'Comedy') risks.push('Comedy is the hardest genre to execute in micro-drama format — timing is critical');
-    if(genre === 'Historical') risks.push('Historical content requires higher production spend — budget carefully');
-    if(lang === 'Hindi' && (genre === 'Romance / CEO')) risks.push('Heavy competition from DramaBox and ReelShort in this exact space — differentiation is critical');
-    if(reasons.length < 3) reasons.push('Concept has solid market potential — execution and episode 1 hook will be decisive');
-    if(risks.length === 0) risks.push('Main risk is execution speed — competitors are launching 60-100 shows per month');
+    // ── SCRIPT ANALYSIS ──
+    if(hasScript) {
+      const s = script.toLowerCase();
+      const epMatches = script.match(/EPISODE\s+\d+/gi) || [];
+      const epCount = epMatches.length;
+      const hasCliffhangers = (script.match(/FADE OUT|END CLIFFHANGER|SMASH CUT/gi) || []).length;
+      const hasFlashback = s.includes('flashback') || s.includes('flash back');
+      const hasDialogue = (script.match(/\n[A-Z ]+\n/g) || []).length;
+      const hasVillain = s.includes('villain') || s.includes('antagonist') || s.includes('threatening') || s.includes('blackmail') || s.includes('gun') || s.includes('threat');
+      const hasRomance = s.includes('love') || s.includes('romance') || s.includes('kiss') || s.includes('feelings');
+      const hasTwistEnding = s.includes('dna') || s.includes('real identity') || s.includes('beti') || s.includes('maa') || s.includes('mother');
+      const wordCount = script.split(' ').length;
 
-    // Cap score
-    score = Math.min(score, 97);
+      score += Math.min(8, Math.floor(epCount / 5));
 
-    // Competitor mapping
-    if(genre === 'Romance / CEO') competitor = 'DramaBox and ReelShort dominate this space with heavy ad spend — Fast TV must differentiate with superior writing and a female POV lead';
-    else if(genre === 'Crime / Revenge') competitor = 'Kuku TV runs revenge arcs but skews male — Fast TV should own the female revenge story angle';
-    else if(genre === 'Family drama') competitor = 'Story TV and Kutingg have some family content — but quality is low, Fast TV can set a higher bar';
-    else if(genre === 'Workplace thriller') competitor = 'Kuku TV has IAS/aspirational content — Fast TV should target female workplace protagonists for differentiation';
-    else competitor = 'Limited direct competition in this genre — Fast TV has first-mover advantage if launched quickly';
+      scriptNotes.push(`📺 ${epCount} episodes detected — ${epCount >= 40 ? 'strong season length for audience retention' : epCount >= 20 ? 'solid episode count' : 'consider expanding to 40+ episodes for better monetization'}`);
+      scriptNotes.push(`⚡ ${hasCliffhangers} episode-end cliffhangers found — ${hasCliffhangers >= epCount * 0.6 ? 'excellent cliffhanger density' : hasCliffhangers >= epCount * 0.3 ? 'good but add more cliffhangers in episodes 5-15 where drop-off is highest' : 'too few cliffhangers — audiences will stop watching — add a hook at the end of every episode'}`);
+      if(hasFlashback) scriptNotes.push('🕰️ Flashback sequences present — effective for backstory but keep under 20% of episode runtime to maintain pace');
+      if(hasVillain) { score += 4; scriptNotes.push('🎭 Clear villain/antagonist present — essential for micro-drama tension — make sure villain appears in episode 1'); }
+      if(hasTwistEnding) { score += 6; scriptNotes.push('🔄 Major identity/relationship twist in the script — this is your biggest marketing asset, tease it in episode 1 without revealing it'); }
+      if(hasRomance) scriptNotes.push('❤️ Romantic elements detected — balance with tension, don\'t let romance slow the pacing in episodes 3-8 where retention is most fragile');
+      scriptNotes.push(`📝 Script length: ~${wordCount.toLocaleString()} words — ${wordCount > 30000 ? 'well developed, rich material to work with' : wordCount > 15000 ? 'good depth' : 'consider expanding character backstories'}`);
 
-    // Hook suggestion
-    if(hasRevenge && hasFemale) hook = 'Open on her being humiliated publicly. She smiles. Cut to: "That was the last time."';
-    else if(hasIdentity) hook = 'Show the secret in the first 10 seconds — then cut back 25 years to show how it started';
-    else if(hasBillionaire) hook = 'He fires her on day one. She walks out calmly. Her phone rings: "The company is yours now."';
-    else if(hasFamily) hook = 'Start with a family photo — warm, perfect. Then crack the glass. Show what the photo hides.';
-    else hook = 'Open mid-confrontation — no setup, no context. Let the audience catch up. Hook in the first 5 seconds.';
+      // Pacing analysis
+      if(epCount > 0) {
+        const wordsPerEp = Math.round(wordCount / epCount);
+        scriptNotes.push(`⏱️ Average ~${wordsPerEp} words per episode — ${wordsPerEp < 300 ? 'very lean, good for fast pacing' : wordsPerEp < 600 ? 'good episode density' : 'episodes may be too dense — trim to keep under 90 seconds runtime'}`);
+      }
 
-    // Verdict
-    let verdict, vColor, vBg, vBorder;
-    if(score >= 75) {
-      verdict = 'GREENLIGHT';
-      vColor = '#3af4b4'; vBg = 'rgba(58,244,180,0.08)'; vBorder = 'rgba(58,244,180,0.2)';
-    } else if(score >= 55) {
-      verdict = 'CAUTION';
-      vColor = '#f4c03a'; vBg = 'rgba(244,192,58,0.08)'; vBorder = 'rgba(244,192,58,0.2)';
+      // Episode 1 specific check
+      const ep1Match = script.match(/EPISODE 1[\s\S]*?(?=EPISODE 2|$)/i);
+      if(ep1Match) {
+        const ep1 = ep1Match[0].toLowerCase();
+        const hasStrongOpen = ep1.includes('flashback') || ep1.includes('crying') || ep1.includes('confrontation') || ep1.includes('smash cut') || ep1.includes('night') || ep1.includes('baby');
+        scriptNotes.push(hasStrongOpen ? '✅ Episode 1 opens with strong emotional hook — critical for first-impression retention' : '⚠️ Episode 1 opening could be stronger — audience decides in first 30 seconds whether to continue');
+      }
     } else {
-      verdict = 'PASS';
-      vColor = '#f43a6e'; vBg = 'rgba(244,58,110,0.08)'; vBorder = 'rgba(244,58,110,0.2)';
+      scriptNotes.push('📋 No script pasted — paste your full script in the "Script" field for episode-by-episode analysis, pacing notes, and cliffhanger scoring');
     }
 
+    // ── RISK ANALYSIS ──
+    if(!hasTwist && !hasRevenge && !hasIdentity) risks.push('Logline lacks a clear hook — episode 1 must open with confrontation or reveal within first 30 seconds');
+    if(genre === 'Comedy') risks.push('Comedy timing is extremely hard in 60-90 second episodes — test with 3 pilot episodes before full production');
+    if(genre === 'Historical') risks.push('Historical content requires higher costume and set spend — budget at least 40% more per episode');
+    if(lang === 'Hindi' && genre === 'Romance / CEO') risks.push('DramaBox and ReelShort are spending heavily in Hindi Romance/CEO — you need a distinct hook to cut through');
+    if(reasons.length < 3) reasons.push('Concept has solid market potential — execution and episode 1 hook will be the deciding factor');
+    if(risks.length === 0) risks.push('Main risk is speed — competitors launch 60-100 shows per month, move fast');
+
+    // ── MARKETING ANGLES ──
+    if(hasRevenge && hasFemale) {
+      marketingAngles.push('🎯 Target audience: Women 22–38, Hindi speaking, Tier-1 and Tier-2 cities');
+      marketingAngles.push('📱 Instagram Reel hook: Show the humiliation scene first. Cut to her 2 years later walking into the same room with power. No dialogue needed.');
+      marketingAngles.push('📣 Meta ad hook: "She was humiliated. She smiled. 2 years later she came back." — run this as a 15-second clip from episode 1');
+      marketingAngles.push('🖼️ Thumbnail direction: Close-up of female lead, half her face in shadow, half lit — convey duality of victim and avenger');
+      marketingAngles.push('🔑 Keyword targeting: "revenge drama", "strong female lead", "binge watch", "micro drama Hindi"');
+    } else if(hasIdentity || hasTwist) {
+      marketingAngles.push('🎯 Target audience: Women and men 20–40, mystery/thriller fans, binge watchers');
+      marketingAngles.push('📱 Instagram Reel hook: Show the twist moment — freeze frame — cut to black. "Who is she really?" Caption drives clicks.');
+      marketingAngles.push('📣 Meta ad hook: Clip of the identity reveal moment with "You won\'t believe who she is" — mystery drives installs');
+      marketingAngles.push('🖼️ Thumbnail direction: Two faces overlapping — hint at dual identity without giving it away');
+      marketingAngles.push('🔑 Keyword targeting: "identity reveal drama", "plot twist", "mystery drama Hindi", "micro drama"');
+    } else if(hasBillionaire) {
+      marketingAngles.push('🎯 Target audience: Women 18–35, romance fans, Tier-2 cities');
+      marketingAngles.push('📱 Instagram Reel hook: The moment she stands up to the billionaire — audiences love the power reversal');
+      marketingAngles.push('📣 Meta ad hook: "He had everything. She had nothing. Until she changed everything." — proven template');
+      marketingAngles.push('🖼️ Thumbnail direction: Contrast — her simple clothes vs his luxury setting — wealth gap visual');
+      marketingAngles.push('🔑 Keyword targeting: "billionaire romance", "CEO drama", "love story Hindi", "micro drama"');
+    } else {
+      marketingAngles.push('🎯 Target audience: Hindi drama fans 20–40, Tier-2 cities');
+      marketingAngles.push('📱 Instagram Reel hook: Use the most emotionally intense scene from episode 1 — keep it under 30 seconds');
+      marketingAngles.push('📣 Meta ad strategy: A/B test 3 different clips from episode 1 — let data tell you which hook converts best');
+      marketingAngles.push('🖼️ Thumbnail direction: Show maximum emotional intensity — tears, confrontation, or shock work best');
+      marketingAngles.push('🔑 Keyword targeting: "Hindi drama series", "emotional drama", "micro drama app"');
+    }
+
+    // ── COMPETITOR COMPARISON ──
+    const competitors = [
+      { name:'DramaBox', match: (genre === 'Romance / CEO' || genre === 'Crime / Revenge') ? 'HIGH' : 'LOW', color:'#f4903a',
+        doing: 'Running 18+ ad creatives per show. Heavy Meta + YouTube spend. Coin paywall at episode 8.',
+        gap: hasFemale ? 'DramaBox skews male — female lead gives you immediate differentiation' : 'DramaBox dominates Romance/CEO — you need a unique twist to stand out' },
+      { name:'Kuku TV', match: (lang === 'Hindi' || lang === 'Telugu' || lang === 'Tamil') ? 'HIGH' : 'MEDIUM', color:'#3af4b4',
+        doing: '60-100 shows/month. Audio IP validation from Kuku FM. AI dubbing for regional languages.',
+        gap: hasFemale ? 'Kuku TV is 90%+ male audience — female protagonist gives you a segment they cannot serve' : 'Kuku TV wins on volume — Fast TV must win on quality and distinctive hooks' },
+      { name:'ReelShort', match: (genre === 'Romance / CEO') ? 'HIGH' : 'LOW', color:'#f4c03a',
+        doing: 'Adapted English/Chinese IP into Hindi. 13-16 creatives per winning show. Coin model.',
+        gap: 'ReelShort uses adapted foreign IP — original Indian stories with authentic cultural nuance will outperform' },
+      { name:'MX Fatafat', match: (genre === 'Family drama' || genre === 'Romance / CEO') ? 'MEDIUM' : 'LOW', color:'#3a9ef4',
+        doing: 'Ad-supported free model. Amazon distribution. Co-creating with first-time creators.',
+        gap: 'MX Fatafat is free/ad-supported — Fast TV can win on premium content quality with subscription model' },
+    ];
+
+    // ── HOOK SUGGESTION ──
+    if(hasRevenge && hasFemale) hook = 'Open on her being publicly humiliated — zoom on her face as she quietly smiles. Cut to black. Title card: "2 years later." She walks in as the one with all the power.';
+    else if(hasDualTimeline && hasFemale) hook = 'Show a 16-year-old girl crying, singing a lullaby to a baby she\'s giving away. Hard cut to today — same woman, perfect life, same lullaby playing from somewhere in the house. She freezes.';
+    else if(hasIdentity) hook = 'Episode 1, first 10 seconds: show us the secret. Don\'t explain it. Cut to 25 years earlier and start the story. Audience watches the whole series knowing what\'s coming.';
+    else if(hasBillionaire) hook = 'He fires her in the first scene. She walks out without a word. Her phone rings. "Sir, she owns 40% of the company." He drops his pen.';
+    else if(hasFamily) hook = 'Family photo on the wall — warm, smiling, perfect. Camera slowly zooms. One face has been cut out. Who? And why?';
+    else hook = 'Start at the most tense moment of the entire series. No context. Then cut to "6 months earlier." Make the audience need to know how you got there.';
+
+    // ── SCORE CAP & VERDICT ──
+    score = Math.min(score, 97);
+    let verdict, vColor, vBg, vBorder;
+    if(score >= 75) { verdict = 'GREENLIGHT'; vColor = '#3af4b4'; vBg = 'rgba(58,244,180,0.08)'; vBorder = 'rgba(58,244,180,0.2)'; }
+    else if(score >= 55) { verdict = 'CAUTION'; vColor = '#f4c03a'; vBg = 'rgba(244,192,58,0.08)'; vBorder = 'rgba(244,192,58,0.2)'; }
+    else { verdict = 'PASS'; vColor = '#f43a6e'; vBg = 'rgba(244,58,110,0.08)'; vBorder = 'rgba(244,58,110,0.2)'; }
     const headline = verdict === 'GREENLIGHT' ? 'Strong market fit — move to production' : verdict === 'CAUTION' ? 'Potential exists — needs stronger hook' : 'Weak market fit — reconsider concept';
 
     recEl.style.background = vBg;
     recEl.style.border = `1px solid ${vBorder}`;
     recEl.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <div style="font-family:var(--display);font-size:16px;font-weight:800;color:${vColor};">${verdict}</div>
-        <div style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vBorder};padding:2px 8px;border-radius:3px;">${score}/100</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div style="font-family:var(--display);font-size:18px;font-weight:800;color:${vColor};">${verdict}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:${vColor};border:1px solid ${vBorder};padding:2px 10px;border-radius:3px;">${score}/100</div>
         <div style="font-size:12px;color:var(--text2);font-style:italic;">${headline}</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
         <div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--green);text-transform:uppercase;margin-bottom:4px;">Why it works</div>
-          ${reasons.slice(0,3).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;gap:5px;line-height:1.4;"><span style="color:var(--green);flex-shrink:0;">+</span>${r}</div>`).join('')}
+          <div style="font-family:var(--mono);font-size:9px;color:var(--green);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em;">Why it works</div>
+          ${reasons.slice(0,4).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;display:flex;gap:6px;line-height:1.5;"><span style="color:var(--green);flex-shrink:0;margin-top:1px;">+</span>${r}</div>`).join('')}
         </div>
         <div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--red);text-transform:uppercase;margin-bottom:4px;">Watch out for</div>
-          ${risks.slice(0,2).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;gap:5px;line-height:1.4;"><span style="color:var(--red);flex-shrink:0;">−</span>${r}</div>`).join('')}
+          <div style="font-family:var(--mono);font-size:9px;color:var(--red);text-transform:uppercase;margin-bottom:6px;letter-spacing:.06em;">Watch out for</div>
+          ${risks.slice(0,3).map(r=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;display:flex;gap:6px;line-height:1.5;"><span style="color:var(--red);flex-shrink:0;margin-top:1px;">−</span>${r}</div>`).join('')}
         </div>
       </div>
-      <div style="background:rgba(232,244,58,0.05);border-radius:4px;padding:8px 10px;margin-bottom:8px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;margin-bottom:3px;">Suggested ep 1 hook</div>
-        <div style="font-size:11px;color:var(--text2);font-style:italic;">"${hook}"</div>
+
+      ${scriptNotes.length > 0 ? `
+      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Script analysis — all ${script.match(/EPISODE\s+\d+/gi)?.length||'?'} episodes</div>
+        ${scriptNotes.map(n=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;line-height:1.5;">${n}</div>`).join('')}
+      </div>` : ''}
+
+      <div style="background:rgba(232,244,58,0.05);border:1px solid rgba(232,244,58,0.15);border-radius:6px;padding:12px;margin-bottom:12px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Suggested episode 1 hook</div>
+        <div style="font-size:12px;color:var(--text2);font-style:italic;line-height:1.6;">"${hook}"</div>
       </div>
-      <div style="background:rgba(58,158,244,0.05);border-radius:4px;padding:8px 10px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--blue);text-transform:uppercase;margin-bottom:3px;">Competitive positioning</div>
-        <div style="font-size:11px;color:var(--text2);">${competitor}</div>
+
+      <div style="background:rgba(58,158,244,0.05);border:1px solid rgba(58,158,244,0.15);border-radius:6px;padding:12px;margin-bottom:12px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--blue);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Marketing strategy</div>
+        ${marketingAngles.map(a=>`<div style="font-size:11px;color:var(--text2);margin-bottom:5px;line-height:1.5;">${a}</div>`).join('')}
+      </div>
+
+      <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:12px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Competitor comparison</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+          ${competitors.map(c=>`
+            <div style="background:var(--bg3);border-radius:5px;padding:8px 10px;border-left:2px solid ${c.color};">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                <span style="font-family:var(--display);font-size:12px;font-weight:700;color:${c.color};">${c.name}</span>
+                <span style="font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:2px;background:${c.match==='HIGH'?'rgba(244,58,110,0.15)':c.match==='MEDIUM'?'rgba(244,192,58,0.1)':'rgba(58,244,180,0.08)'};color:${c.match==='HIGH'?'var(--red)':c.match==='MEDIUM'?'var(--amber)':'var(--green)'};">${c.match} OVERLAP</span>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-bottom:3px;line-height:1.4;">${c.doing}</div>
+              <div style="font-size:10px;color:${c.color};line-height:1.4;">Fast TV edge: ${c.gap}</div>
+            </div>`).join('')}
+        </div>
       </div>`;
+
   }, 800);
 }
 
