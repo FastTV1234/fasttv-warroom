@@ -12,31 +12,20 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 const INDEX_FILE = path.join(__dirname, 'index.html');
 
 const DEFAULT_DATA = {
-  tasks: [
-    { id:1, text:'Check DramaBox & ReelShort Meta Ad Library', owner:'Priya', due:'today', done:false },
-    { id:2, text:'Screenshot top 3 Kuku TV YouTube pre-roll creatives', owner:'Arjun', due:'today', done:false },
-    { id:3, text:'Research JioHotstar Sparks pilot launch date', owner:'Rahul', due:'this-week', done:false },
-    { id:4, text:'Greenlight decision: Bhojpuri romance series', owner:'Me', due:'today', done:false },
-    { id:5, text:'Map ReelSaga genre library', owner:'Priya', due:'this-week', done:false },
-    { id:6, text:'Track Kuku TV Hindi show launch count this week', owner:'Arjun', due:'this-week', done:false }
-  ],
+  tasks: [],
   pipeline: {
-    'Ideation': [
-      { title:'Revenge Bahu', genre:'Crime / Revenge', lang:'Hindi', priority:'High', logline:'Daughter-in-law discovers family secret and reclaims what is hers.' },
-      { title:'Startup Queen', genre:'Workplace thriller', lang:'Hindi', priority:'Medium', logline:'Small-town girl disrupts Mumbai startup funded by the man who wronged her family.' }
-    ],
-    'Greenlit': [{ title:'Kuch Ankahi Baatein', genre:'Romance / CEO', lang:'Marathi', priority:'High', logline:'Billionaire falls for the one woman not impressed by his wealth.' }],
-    'In Production': [{ title:'Dil Ka Badla', genre:'Romance / CEO', lang:'Hindi', priority:'High', logline:'She fakes amnesia to escape a forced marriage.' }],
+    'Concept': [],
+    'Beat Sheet': [],
+    'Greenlight (Contract)': [],
+    'Casting': [],
+    'Scripting': [],
+    'Production': [],
     'Post Production': [],
-    'Launched': [{ title:'Raat Ka Raaz', genre:'Supernatural', lang:'Hindi', priority:'Medium', logline:'Night watchman discovers the building hides a 40-year-old secret.' }]
+    'Launched': [],
+    'Marketing': []
   },
-  launches: [
-    { id:1, title:'CEO Ka Raaz', platform:'DramaBox', genre:'Romance / CEO', lang:'Hindi', eps:72, promo:'Heavy', source:'Meta Ads', hook:'He married me but never looked at me.', notes:'18 active ad creatives.', logger:'Priya', date:'2026-03-18' },
-    { id:2, title:'Badla Mera Haq', platform:'DramaBox', genre:'Crime / Revenge', lang:'Hindi', eps:65, promo:'Heavy', source:'Meta Ads', hook:'You humiliated me. Now watch who I become.', notes:'Revenge arc.', logger:'Arjun', date:'2026-03-17' },
-    { id:3, title:'Anari Pati', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', eps:80, promo:'Moderate', source:'YouTube Ads', hook:'He acted useless but ran the whole empire.', notes:'Hidden identity trope.', logger:'Rahul', date:'2026-03-15' },
-    { id:4, title:'Alpha CEO', platform:'ReelShort', genre:'Romance / CEO', lang:'Hindi', eps:75, promo:'Heavy', source:'Meta Ads', hook:'He never smiled. Until she walked in.', notes:'13 creatives.', logger:'Rahul', date:'2026-03-06' }
-  ],
-  idCounters: { tasks: 7, launches: 5 }
+  launches: [],
+  idCounters: { tasks: 1, launches: 1 }
 };
 
 function loadData() {
@@ -135,6 +124,20 @@ app.get('/api/youtube', async (req, res) => {
     res.json(items);
   } catch(e) {
     res.json([]);
+  }
+});
+
+// ── Clear data endpoint (wipes saved data.json back to empty defaults) ─────────
+app.post('/api/clear-data', (req, res) => {
+  const secret = req.query.secret;
+  if(secret !== 'fasttv2026') return res.status(403).json({ error: 'Unauthorized' });
+  try {
+    if(fs.existsSync(DATA_FILE)) fs.unlinkSync(DATA_FILE);
+    db = loadData();
+    wss.clients.forEach(c => { if(c.readyState === WebSocket.OPEN) c.send(JSON.stringify({ type:'INIT', payload:db })); });
+    res.json({ success: true, message: 'Data cleared and reset to empty defaults' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
