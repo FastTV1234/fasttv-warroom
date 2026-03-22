@@ -281,7 +281,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <div style="display:flex;align-items:baseline;gap:12px;"><div class="section-title">Content Pipeline</div><div class="section-sub">Greenlight board · changes sync to all team members</div></div>
     <button class="btn btn-primary" onclick="openModal('add-show')">+ Add Show</button>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;" id="pipeline-board"></div>
+  <div style="display:grid;grid-template-columns:repeat(9,1fr);gap:10px;min-width:1400px;overflow-x:auto;" id="pipeline-board"></div>
 </div>
 
 <!-- AD INTEL -->
@@ -393,10 +393,11 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="form-row full-col"><div class="form-label">Show title</div><input class="form-input" id="show-title" placeholder="e.g. Pyaar Ka Badla"></div>
       <div class="form-row"><div class="form-label">Genre</div><select class="form-select" id="show-genre"><option>Romance / CEO</option><option>Crime / Revenge</option><option>Family drama</option><option>Workplace thriller</option><option>Historical</option><option>Supernatural</option><option>Comedy</option></select></div>
       <div class="form-row"><div class="form-label">Language</div><select class="form-select" id="show-lang"><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Bengali</option><option>Kannada</option><option>Marathi</option><option>Bhojpuri</option><option>Gujarati</option></select></div>
-      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="show-stage"><option>Ideation</option><option>Greenlit</option><option>In Production</option><option>Post Production</option><option>Launched</option></select></div>
+      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="show-stage"><option>Concept</option><option>Beat Sheet</option><option>Greenlight (Contract)</option><option>Casting</option><option>Scripting</option><option>Production</option><option>Post Production</option><option>Launched</option><option>Marketing</option></select></div>
       <div class="form-row"><div class="form-label">Priority</div><select class="form-select" id="show-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
       <div class="form-row full-col"><div class="form-label">Logline</div><textarea class="form-textarea" id="show-logline" placeholder="One-line story hook..."></textarea></div>
       <div class="form-row full-col"><div class="form-label">Google Doc / Script link</div><input class="form-input" id="show-gdoc" placeholder="Paste Google Doc link e.g. docs.google.com/..."></div>
+      <div class="form-row full-col"><div class="form-label">Synopsis (for Beat Sheet AI analysis)</div><textarea class="form-textarea" id="show-synopsis" placeholder="2-3 paragraph story summary — acts, turning points, ending..." style="min-height:80px;"></textarea></div>
       <div class="form-row full-col"><div class="form-label">Paste script here (optional)</div><textarea class="form-textarea" id="show-script" placeholder="Paste full script text here — your team can read it directly from the pipeline card..." style="min-height:120px;"></textarea></div>
     </div>
     <div id="show-recommendation" style="display:none;margin-top:12px;border-radius:6px;padding:12px 14px;"></div>
@@ -448,7 +449,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
       <div class="form-row full-col"><div class="form-label">Show title</div><input class="form-input" id="edit-title" placeholder="e.g. Pyaar Ka Badla"></div>
       <div class="form-row"><div class="form-label">Genre</div><select class="form-select" id="edit-genre"><option>Romance / CEO</option><option>Crime / Revenge</option><option>Family drama</option><option>Workplace thriller</option><option>Historical</option><option>Supernatural</option><option>Comedy</option></select></div>
       <div class="form-row"><div class="form-label">Language</div><select class="form-select" id="edit-lang"><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Bengali</option><option>Kannada</option><option>Marathi</option><option>Bhojpuri</option><option>Gujarati</option></select></div>
-      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="edit-stage-select"><option>Ideation</option><option>Greenlit</option><option>In Production</option><option>Post Production</option><option>Launched</option></select></div>
+      <div class="form-row"><div class="form-label">Stage</div><select class="form-select" id="edit-stage-select"><option>Concept</option><option>Beat Sheet</option><option>Greenlight (Contract)</option><option>Casting</option><option>Scripting</option><option>Production</option><option>Post Production</option><option>Launched</option><option>Marketing</option></select></div>
       <div class="form-row"><div class="form-label">Priority</div><select class="form-select" id="edit-priority"><option>High</option><option>Medium</option><option>Low</option></select></div>
       <div class="form-row full-col"><div class="form-label">Logline</div><textarea class="form-textarea" id="edit-logline" placeholder="One-line story hook..."></textarea></div>
       <div class="form-row full-col"><div class="form-label">Google Doc / Script link</div><input class="form-input" id="edit-gdoc" placeholder="Paste Google Doc link..."></div>
@@ -554,8 +555,30 @@ const ALERT_FEED = [
   {color:'#3af4b4',msg:'<strong>OPPORTUNITY:</strong> No platform running ads targeting women 18–35 in Hindi romance genre.',time:'3 days ago'},
   {color:'#c09ef4',msg:'<strong>FUNDING:</strong> Flick TV ($2.3M) and ReelSaga ($2.1M) both funded. Expect content acceleration in Q2.',time:'4 days ago'},
 ];
-const STAGE_COLORS = {'Ideation':'rgba(58,158,244,0.15)','Greenlit':'rgba(232,244,58,0.12)','In Production':'rgba(244,144,58,0.12)','Post Production':'rgba(192,158,244,0.12)','Launched':'rgba(58,244,180,0.12)'};
-const STAGE_TC = {'Ideation':'#3a9ef4','Greenlit':'#e8f43a','In Production':'#f4903a','Post Production':'#c09ef4','Launched':'#3af4b4'};
+const STAGES = ['Concept','Beat Sheet','Greenlight (Contract)','Casting','Scripting','Production','Post Production','Launched','Marketing'];
+const STAGE_COLORS = {
+  'Concept':'rgba(58,158,244,0.15)',
+  'Beat Sheet':'rgba(192,158,244,0.15)',
+  'Greenlight (Contract)':'rgba(232,244,58,0.15)',
+  'Casting':'rgba(244,192,58,0.15)',
+  'Scripting':'rgba(244,144,58,0.15)',
+  'Production':'rgba(244,58,110,0.15)',
+  'Post Production':'rgba(160,244,58,0.15)',
+  'Launched':'rgba(58,244,180,0.15)',
+  'Marketing':'rgba(58,200,244,0.15)'
+};
+const STAGE_TC = {
+  'Concept':'#3a9ef4',
+  'Beat Sheet':'#c09ef4',
+  'Greenlight (Contract)':'#e8f43a',
+  'Casting':'#f4c03a',
+  'Scripting':'#f4903a',
+  'Production':'#f43a6e',
+  'Post Production':'#a0f43a',
+  'Launched':'#3af4b4',
+  'Marketing':'#3ac8f4'
+};
+const AI_STAGES = ['Concept','Beat Sheet','Scripting']; // stages with AI recommendation
 
 // ── App state (populated from server via WS) ──────────────────────────────────
 let db = { tasks:[], pipeline:{}, launches:[], idCounters:{tasks:1,launches:1} };
@@ -786,29 +809,46 @@ let dragSrc=null, dragSrcIdx=null;
 function renderPipeline() {
   const board = document.getElementById('pipeline-board');
   if(!board) return;
-  const stages = ['Ideation','Greenlit','In Production','Post Production','Launched'];
-  board.innerHTML = stages.map(stage=>{
-    const items = db.pipeline[stage]||[];
-    return `<div>
-      <div class="pipe-col-head" style="background:${STAGE_COLORS[stage]};"><div class="pipe-col-label" style="color:${STAGE_TC[stage]};">${stage}</div><div class="pipe-count" style="color:${STAGE_TC[stage]};">${items.length}</div></div>
-      <div class="pipeline-col drop-zone" id="col-${stage.replace(/\s/g,'-')}" ondragover="dragOver(event)" ondrop="dropCard(event,'${stage}')">
-        ${items.map((item,idx)=>`<div class="pipe-card" draggable="true" ondragstart="dragStart(event,'${stage}',${idx})">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-            <div class="pipe-card-title" style="margin-bottom:0;">${item.title}</div>
-            <div style="display:flex;gap:4px;flex-shrink:0;margin-left:8px;">
-              <button onclick="openEditCard(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;" title="Edit">✏️</button>
-              <button onclick="deleteCard(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid rgba(244,58,110,0.2);background:transparent;color:var(--red);cursor:pointer;" title="Delete">×</button>
+
+  // Find shows running in parallel (same title in both Casting and Scripting)
+  const castingTitles = new Set((db.pipeline['Casting']||[]).map(c => c.title.toLowerCase()));
+  const scriptingTitles = new Set((db.pipeline['Scripting']||[]).map(c => c.title.toLowerCase()));
+  const parallelTitles = new Set([...castingTitles].filter(t => scriptingTitles.has(t)));
+
+  board.innerHTML = STAGES.map(stage => {
+    const items = db.pipeline[stage] || [];
+    const hasAI = AI_STAGES.includes(stage);
+    return `<div style="min-width:160px;">
+      <div class="pipe-col-head" style="background:${STAGE_COLORS[stage]};"><div class="pipe-col-label" style="color:${STAGE_TC[stage]};font-size:10px;">${stage}</div><div class="pipe-count" style="color:${STAGE_TC[stage]};">${items.length}</div></div>
+      <div class="pipeline-col drop-zone" id="col-${stage.replace(/[\s()]/g,'-')}" ondragover="dragOver(event)" ondrop="dropCard(event,'${stage}')">
+        ${items.map((item,idx) => {
+          const isParallel = (stage==='Casting'||stage==='Scripting') && parallelTitles.has(item.title.toLowerCase());
+          return `<div class="pipe-card" draggable="true" ondragstart="dragStart(event,'${stage}',${idx})">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+              <div>
+                <div class="pipe-card-title" style="margin-bottom:0;font-size:12px;">${item.title}</div>
+                ${isParallel ? `<div style="font-family:var(--mono);font-size:8px;color:#f4c03a;margin-top:2px;">⚡ Running parallel with ${stage==='Casting'?'Scripting':'Casting'}</div>` : ''}
+              </div>
+              <div style="display:flex;gap:3px;flex-shrink:0;margin-left:6px;">
+                <button onclick="openEditCard(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;" title="Edit">✏️</button>
+                <button onclick="deleteCard(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px;border:1px solid rgba(244,58,110,0.2);background:transparent;color:var(--red);cursor:pointer;" title="Delete">×</button>
+              </div>
             </div>
-          </div>
-          ${item.logline?`<div style="font-size:11px;color:var(--text3);margin-bottom:5px;line-height:1.4;">${item.logline}</div>`:''}
-          <div class="pipe-card-meta"><span class="pipe-tag genre">${item.genre}</span><span class="pipe-tag lang">${item.lang}</span><span class="pipe-tag priority-${item.priority.toLowerCase()==='high'?'high':'med'}">${item.priority}</span></div>
-          ${(item.script||item.gdoc)?`<div style="margin-top:8px;display:flex;gap:6px;">
-            ${item.script?`<button onclick="viewScript(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(232,244,58,0.3);background:rgba(232,244,58,0.06);color:var(--accent);cursor:pointer;">📄 Read Script</button>`:''}
-            ${item.gdoc?`<a href="${item.gdoc}" target="_blank" onclick="event.stopPropagation()" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(58,158,244,0.3);background:rgba(58,158,244,0.06);color:var(--blue);text-decoration:none;">🔗 Google Doc</a>`:''}
-          </div>`:''}
-        </div>`).join('')}
+            ${item.logline ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;line-height:1.4;">${item.logline.slice(0,80)}${item.logline.length>80?'...':''}</div>` : ''}
+            ${item.synopsis ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;line-height:1.4;font-style:italic;">${item.synopsis.slice(0,60)}...</div>` : ''}
+            <div class="pipe-card-meta"><span class="pipe-tag genre" style="font-size:9px;">${item.genre}</span><span class="pipe-tag lang" style="font-size:9px;">${item.lang}</span><span class="pipe-tag priority-${(item.priority||'').toLowerCase()==='high'?'high':'med'}" style="font-size:9px;">${item.priority}</span></div>
+            ${(item.script||item.gdoc) ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+              ${item.script ? `<button onclick="viewScript(event,'${stage}',${idx})" style="font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid rgba(232,244,58,0.3);background:rgba(232,244,58,0.06);color:var(--accent);cursor:pointer;">📄 Script</button>` : ''}
+              ${item.gdoc ? `<a href="${item.gdoc}" target="_blank" onclick="event.stopPropagation()" style="font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:3px;border:1px solid rgba(58,158,244,0.3);background:rgba(58,158,244,0.06);color:var(--blue);text-decoration:none;">🔗 Doc</a>` : ''}
+            </div>` : ''}
+            ${hasAI ? `<div style="margin-top:6px;">
+              <button onclick="getAIRec('${stage}','${stage}',${idx})" style="font-family:var(--mono);font-size:8px;padding:3px 8px;border-radius:3px;border:1px solid rgba(192,158,244,0.4);background:rgba(192,158,244,0.08);color:#c09ef4;cursor:pointer;width:100%;">✦ AI Analysis</button>
+              <div id="ai-rec-${stage.replace(/[\s()]/g,'-')}-${idx}" style="display:none;margin-top:6px;"></div>
+            </div>` : ''}
+          </div>`;
+        }).join('')}
       </div>
-      <div style="margin-top:8px;"><button class="add-card-btn" onclick="quickAddToStage('${stage}')">+ Add to ${stage}</button></div>
+      <div style="margin-top:6px;"><button class="add-card-btn" onclick="quickAddToStage('${stage}')">+ Add</button></div>
     </div>`;
   }).join('');
 }
@@ -886,11 +926,12 @@ function addShow() {
     lang:document.getElementById('show-lang').value,
     priority:document.getElementById('show-priority').value,
     logline:document.getElementById('show-logline').value.trim(),
+    synopsis:document.getElementById('show-synopsis').value.trim(),
     gdoc:document.getElementById('show-gdoc').value.trim(),
     script:document.getElementById('show-script').value.trim(),
   }});
   closeModal('add-show');
-  ['show-title','show-logline','show-gdoc','show-script'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['show-title','show-logline','show-synopsis','show-gdoc','show-script'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
 }
 
 function viewScript(e, stage, idx) {
@@ -1113,7 +1154,322 @@ function renderAdIntel() {
   }
 }
 
-// ── Deep Greenlight Analysis Engine ──────────────────────────────────────────
+// ── Competitor Intelligence Helpers ──────────────────────────────────────────
+function getCompetitorIntel(genre, lang) {
+  // Pull from live Ad Intel and Launches data
+  const adByGenre = adIntelData.filter(a => {
+    const h = (a.hook||'').toLowerCase() + (a.title||'').toLowerCase();
+    if(genre==='Romance / CEO') return h.includes('ceo')||h.includes('billionaire')||h.includes('boss')||h.includes('rich')||h.includes('veer');
+    if(genre==='Crime / Revenge') return h.includes('revenge')||h.includes('badla')||h.includes('destroy');
+    if(genre==='Family drama') return h.includes('family')||h.includes('bahu')||h.includes('maa');
+    return false;
+  });
+  const launchByGenre = (db.launches||[]).filter(l => l.genre === genre);
+  const heavyAds = adByGenre.filter(a => a.spike==='Heavy');
+
+  const intel = [];
+  const edges = [];
+
+  // What's working — from live data
+  if(heavyAds.length > 0) {
+    const topAd = heavyAds.sort((a,b) => (b.count||0)-(a.count||0))[0];
+    intel.push(`${topAd.platform} is running "${topAd.title}" for ${topAd.count}+ days — hook: "${(topAd.hook||'').slice(0,60)}..."`);
+  }
+  if(launchByGenre.length > 0) {
+    const recent = launchByGenre.slice(0,2).map(l => `${l.platform}: "${l.title}"`).join(', ');
+    intel.push(`Recent ${genre} launches tracked: ${recent}`);
+  }
+
+  // Static competitor intel by genre
+  if(genre==='Romance / CEO') {
+    intel.push('Kuku TV\'s Veer Jindal (4.6M impressions, 221 days): shirtless billionaire + beach = male fantasy formula');
+    intel.push('DramaBox\'s Allie Allie (2.9M impressions, 262 days): trapped woman + emotional stakes = female engagement formula');
+    edges.push('Fast TV edge: Neither platform does emotional depth well. Kuku TV is fantasy, DramaBox is melodrama. A CEO story where the lead is flawed and human — not a god — is wide open.');
+    edges.push('Kuku TV weakness: 90% male audience, no female POV. A female-led CEO story has zero competition from them.');
+    edges.push('DramaBox weakness: Adapted foreign IP feels inauthentic. Original Indian cultural context in same genre will outperform.');
+  } else if(genre==='Crime / Revenge') {
+    intel.push('Kuku TV dominates male revenge — Bikhaari Se Ameer (266 days): helpless man rises to power');
+    intel.push('DramaBox Power Walk (252 days): female authority visual — woman walking with power, no dialogue');
+    edges.push('Fast TV edge: Female revenge with real emotional cost — not just power fantasy. Show what revenge takes from her too. Nobody is doing this.');
+    edges.push('Kuku TV weakness: Their revenge arcs are wish fulfilment with no moral complexity — audiences are getting smarter.');
+  } else if(genre==='Family drama') {
+    intel.push('Story TV runs family drama heavily — bahu/saas format with 50M users');
+    intel.push('Kuku TV family content skews male with strong mother-son dynamics');
+    edges.push('Fast TV edge: Inter-generational family drama with a secret — the format Story TV uses but with higher production quality and writing craft.');
+    edges.push('Story TV weakness: High volume, low quality. Fast TV\'s premium positioning wins if writing is clearly better.');
+  } else if(genre==='Workplace thriller') {
+    intel.push('Kuku TV runs IAS/aspirational content — Daksh IAS format performs well with Tier-2 male audiences');
+    edges.push('Fast TV edge: Female workplace protagonist — IAS officer, startup founder, corporate fighter. Kuku TV does not serve this audience.');
+    edges.push('No platform is doing workplace thriller with genuine suspense — the genre is treated as aspirational, not thrilling.');
+  } else if(genre==='Supernatural') {
+    intel.push('GoodShort runs supernatural with adapted Asian content');
+    intel.push('Very limited Indian supernatural micro-drama exists — mostly horror-adjacent');
+    edges.push('Fast TV edge: Supernatural with emotional grounding — ghost story that\'s really about grief, or curse that\'s really about family guilt. Elevates the genre.');
+  } else {
+    intel.push(`${genre} has limited competitor data in your Ad Intel — consider logging more competitor shows in this genre`);
+    edges.push(`Fast TV edge: Limited competition in ${genre} micro-drama — first mover with quality content wins the audience`);
+  }
+
+  // Language-specific edges
+  if(['Bhojpuri','Gujarati','Marathi'].includes(lang)) {
+    edges.push(`${lang} is virtually untapped — no major platform has invested here. Fast TV owns this audience if you move fast.`);
+  } else if(lang==='Hindi') {
+    edges.push('Hindi is the most competitive language — your story quality and hook must be significantly better than what\'s already running.');
+  }
+
+  return { intel, edges };
+}
+
+// ── Stage-Aware AI Recommendation Engine (Strict + Competitor-Aware) ──────────
+function getAIRec(stage, stageKey, idx) {
+  const item = (db.pipeline[stageKey] || [])[idx];
+  if(!item) return;
+  const recId = `ai-rec-${stageKey.replace(/[\s()]/g,'-')}-${idx}`;
+  const recEl = document.getElementById(recId);
+  if(!recEl) return;
+
+  recEl.style.display = 'block';
+  recEl.innerHTML = `<div style="font-family:var(--mono);font-size:9px;color:#c09ef4;margin-bottom:4px;">✦ ANALYSING WITH COMPETITOR INTELLIGENCE...</div>`;
+
+  setTimeout(() => {
+    if(stage === 'Concept') analyseConceptStrict(item, recEl);
+    else if(stage === 'Beat Sheet') analyseBeatSheet(item, recEl);
+    else if(stage === 'Scripting') analyseScriptStrict(item, recEl);
+  }, 600);
+}
+
+// ── CONCEPT ANALYSIS (Strict + Competitor-Aware) ──────────────────────────────
+function analyseConceptStrict(item, recEl) {
+  let score = 30;
+  const reasons = [], risks = [], flags = [];
+  const l = (item.logline + ' ' + (item.synopsis||'')).toLowerCase();
+
+  // Genre scoring
+  const genreMap = { 'Romance / CEO':12,'Crime / Revenge':11,'Family drama':10,'Workplace thriller':8,'Historical':6,'Supernatural':6,'Comedy':4 };
+  score += genreMap[item.genre] || 6;
+  if(item.genre==='Romance / CEO') { reasons.push('Highest demand genre — but most saturated. DramaBox and ReelShort dominate.'); flags.push('Must have a clear differentiator from 50+ similar shows already running ads'); }
+  else if(item.genre==='Crime / Revenge') reasons.push('Strong demand — female revenge angle is wide open, male revenge is Kuku TV\'s territory');
+  else reasons.push(`${item.genre} — moderate competition, execution quality is decisive`);
+
+  // Language
+  const langMap = { 'Bhojpuri':18,'Gujarati':17,'Marathi':16,'Bengali':12,'Telugu':11,'Tamil':10,'Kannada':9,'Hindi':8 };
+  score += langMap[item.lang] || 7;
+  if(['Bhojpuri','Gujarati','Marathi'].includes(item.lang)) reasons.push(`${item.lang} — virtually zero competition, first mover wins loyal audience`);
+  else if(item.lang==='Hindi') flags.push('Hindi = maximum competition. Hook must be exceptional to cut through.');
+
+  // Story signals
+  const hasRevenge = l.includes('revenge')||l.includes('badla')||l.includes('destroy')||l.includes('intqaam');
+  const hasIdentity = l.includes('secret')||l.includes('identity')||l.includes('reveal')||l.includes('infiltrat')||l.includes('hidden');
+  const hasFemale = l.includes('woman')||l.includes('girl')||l.includes('daughter')||l.includes('mother')||l.includes('she')||l.includes('her')||l.includes('bahu');
+  const hasMale = l.includes('man')||l.includes('boy')||l.includes('son')||l.includes('he ')||l.includes('his ')||l.includes('husband')||l.includes('father');
+  const hasDualTimeline = l.includes('years')||l.includes('past')||l.includes('ago')||l.includes('later')||l.includes('return');
+  const hasBillionaire = l.includes('billionaire')||l.includes('ceo')||l.includes('rich')||l.includes('empire')||l.includes('crore');
+  const hasFamily = l.includes('family')||l.includes('mother')||l.includes('daughter')||l.includes('husband')||l.includes('shaadi');
+  const hasTwist = l.includes('secret')||l.includes('reveal')||l.includes('truth')||l.includes('discover')||l.includes('actually');
+  const hasEmotion = l.includes('love')||l.includes('grief')||l.includes('broken')||l.includes('sacrifice')||l.includes('guilt')||l.includes('loss');
+  const hasSynopsis = (item.synopsis||'').length > 100;
+
+  if(hasRevenge) { score += 7; reasons.push('Revenge arc — proven driver of episode-to-episode compulsion'); }
+  if(hasIdentity) { score += 6; reasons.push('Identity reveal — #1 cliffhanger structure working across all platforms right now'); }
+  if(hasDualTimeline) { score += 5; reasons.push('Dual timeline — creates mystery and emotional depth simultaneously'); }
+  if(hasFamily) { score += 4; reasons.push('Family stakes — deep emotional investment and strong word-of-mouth sharing'); }
+  if(hasTwist) { score += 5; }
+  if(hasEmotion) { score += 4; reasons.push('Emotional depth — audiences remember how it made them feel, not the plot'); }
+  if(hasSynopsis) { score += 4; reasons.push('Synopsis provided — concept is well-developed for this stage'); }
+  else flags.push('No synopsis — add 2-3 paragraphs for a more accurate score');
+
+  // Protagonist scoring — nuanced, not binary
+  if(hasFemale && !hasMale) { score += 8; reasons.push('Female-led — targets the most underserved segment, 90%+ of platforms ignore women 18-35'); }
+  else if(hasMale && !hasFemale) {
+    if(hasTwist || hasEmotion || hasIdentity) { score += 5; reasons.push('Male-led with emotional depth or twist — Kuku TV does male fantasy badly, quality male story has a gap'); }
+    else { score -= 3; risks.push('Male-led without emotional depth or twist — Kuku TV already dominates male fantasy, need a clear differentiator'); }
+  } else if(hasFemale && hasMale) { score += 5; reasons.push('Dual protagonist — strong for family drama and romance genres'); }
+
+  // Strict penalties
+  if(!hasTwist && !hasRevenge && !hasIdentity) { score -= 10; risks.push('CRITICAL: No hook, twist, or conflict in logline — audiences will not watch past episode 2'); }
+  if(item.genre==='Romance / CEO' && item.lang==='Hindi' && !hasIdentity && !hasRevenge && !hasEmotion) { score -= 8; risks.push('Hindi Romance/CEO without twist or emotional depth = exact same as 50 shows already running — needs differentiator'); }
+  if((item.logline||'').length < 30) { score -= 5; risks.push('Logline too short — expand to properly evaluate concept'); }
+  if(item.genre==='Comedy') { score -= 5; risks.push('Comedy is the hardest genre in micro-drama — timing is extremely difficult in 90-second episodes'); }
+
+  score = Math.min(Math.max(score, 20), 95);
+
+  // Competitor intelligence
+  const { intel, edges } = getCompetitorIntel(item.genre, item.lang);
+
+  const verdict = score >= 80 ? 'GREENLIGHT' : score >= 60 ? 'DEVELOP' : score >= 45 ? 'REWORK' : 'PASS';
+  const vColor = verdict==='GREENLIGHT'?'#3af4b4':verdict==='DEVELOP'?'#e8f43a':verdict==='REWORK'?'#f4903a':'#f43a6e';
+  const headline = verdict==='GREENLIGHT'?'Strong concept — move to Beat Sheet':verdict==='DEVELOP'?'Promising — strengthen before Beat Sheet':verdict==='REWORK'?'Needs significant rework — revisit core hook':'Not viable in current form — rethink concept';
+
+  let hook = '';
+  if(hasRevenge && hasFemale) hook = 'Open on her humiliation. She smiles quietly. Cut to 2 years later — she walks in with all the power.';
+  else if(hasRevenge && hasMale) hook = 'He\'s on his knees. They\'re laughing. Cut to: "3 years later." He\'s the one making decisions now.';
+  else if(hasIdentity && hasDualTimeline) hook = 'Show the secret in second 1. Cut back 25 years. Let them watch the whole series knowing what\'s coming.';
+  else if(hasBillionaire && hasFemale) hook = 'He fires her on day one. She walks out without a word. Her phone rings: "Sir, she owns 40% of the company."';
+  else if(hasBillionaire && hasMale) hook = 'He acts useless. His wife is embarrassed. Episode 3: he runs the whole empire from the shadows.';
+  else if(hasFamily) hook = 'Perfect family photo on the wall. Camera zooms. One face has been cut out. Who? And why?';
+  else hook = 'Open at the most tense moment of the series. No context. Let the audience catch up. Hook in 5 seconds.';
+
+  recEl.innerHTML = `
+    <div style="background:rgba(192,158,244,0.06);border:1px solid rgba(192,158,244,0.2);border-radius:5px;padding:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-family:var(--display);font-size:13px;font-weight:800;color:${vColor};">${verdict}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vColor}33;padding:1px 6px;border-radius:2px;">${score}/95</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);font-style:italic;margin-bottom:8px;">${headline}</div>
+      ${reasons.length ? `<div style="font-size:10px;color:var(--green);margin-bottom:5px;line-height:1.6;">${reasons.slice(0,4).map(r=>`+ ${r}`).join('<br>')}</div>` : ''}
+      ${risks.length ? `<div style="font-size:10px;color:var(--red);margin-bottom:5px;line-height:1.6;">${risks.map(r=>`− ${r}`).join('<br>')}</div>` : ''}
+      ${flags.length ? `<div style="font-size:10px;color:var(--amber);margin-bottom:6px;line-height:1.6;">${flags.map(f=>`⚠ ${f}`).join('<br>')}</div>` : ''}
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#f4903a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">What's working for competitors</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6;">${intel.map(i=>`📊 ${i}`).join('<br>')}</div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#3af4b4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Fast TV edge</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6;">${edges.map(e=>`⚡ ${e}`).join('<br>')}</div>
+      </div>
+      <div style="background:rgba(232,244,58,0.05);border-radius:3px;padding:6px;margin-top:8px;font-size:10px;color:var(--text2);font-style:italic;">"${hook}"</div>
+    </div>`;
+}
+
+// ── BEAT SHEET ANALYSIS (Strict + Competitor-Aware) ───────────────────────────
+function analyseBeatSheet(item, recEl) {
+  let score = 30;
+  const notes = [], risks = [], flags = [];
+  const s = (item.synopsis || item.logline || '').toLowerCase();
+  const script = (item.script || '').toLowerCase();
+  const hasSynopsis = s.length > 150;
+
+  if(!hasSynopsis && script.length < 200) {
+    recEl.innerHTML = `<div style="background:rgba(244,192,58,0.06);border:1px solid rgba(244,192,58,0.2);border-radius:5px;padding:10px;font-size:10px;color:var(--amber);">⚠ Add a synopsis or beat sheet to get analysis. Logline alone is not enough at this stage.</div>`;
+    return;
+  }
+
+  const epMatches = (item.script||item.synopsis||'').match(/episode\s*\d+/gi) || [];
+  const epCount = epMatches.length;
+  if(epCount >= 40) { score += 12; notes.push(`✅ ${epCount} episodes — strong season length`); }
+  else if(epCount >= 20) { score += 7; notes.push(`⚠️ ${epCount} episodes — consider expanding to 40-60`); }
+  else if(epCount > 0) { score += 3; notes.push(`❌ ${epCount} episodes — 40+ needed for monetisation`); risks.push('Under 20 episodes = insufficient for subscription model'); }
+  else notes.push('📋 No episode numbers found — add them to get pacing analysis');
+
+  const hasMidTwist = s.includes('discover')||s.includes('reveal')||s.includes('realise')||s.includes('truth')||s.includes('secret')||s.includes('twist')||s.includes('turns out');
+  const hasClimax = s.includes('climax')||s.includes('final')||s.includes('confrontation')||s.includes('resolution')||s.includes('reconcil');
+  const hasMultipleTwists = (s.match(/reveal|twist|secret|discover|truth/g)||[]).length >= 3;
+  const hasCliffhangers = s.includes('cliffhanger')||script.includes('fade out')||script.includes('smash cut');
+  const hasAct1 = s.includes('begin')||s.includes('start')||s.includes('open')||s.includes('introduce')||s.includes('first');
+
+  if(hasAct1) { score += 5; notes.push('✅ Act 1 setup present'); }
+  else risks.push('Act 1 setup not clear — episodes 1-5 must establish stakes immediately');
+  if(hasMidTwist) { score += 8; notes.push('✅ Mid-story twist present — prevents drop-off in episodes 15-25'); }
+  else { score -= 5; risks.push('CRITICAL: No mid-story twist — 60% of audiences drop here without a major reveal'); }
+  if(hasClimax) { score += 6; notes.push('✅ Climax present — complete story arc'); }
+  else risks.push('No clear climax — affects completion rate and word-of-mouth');
+  if(hasMultipleTwists) { score += 8; notes.push('✅ Multiple twist points — strong retention across all episodes'); }
+  else { score -= 3; risks.push('Add 2-3 smaller reveals at episodes 10, 25, 35 to maintain momentum'); }
+  if(hasCliffhangers) { score += 5; notes.push('✅ Cliffhanger structure present'); }
+  else flags.push('No cliffhanger markers — every episode must end on a hook');
+
+  // Competitor intel
+  const { intel, edges } = getCompetitorIntel(item.genre, item.lang);
+
+  score = Math.min(Math.max(score, 20), 95);
+  const verdict = score >= 80 ? 'APPROVED' : score >= 60 ? 'REVISE' : score >= 45 ? 'MAJOR REWORK' : 'REJECT';
+  const vColor = verdict==='APPROVED'?'#3af4b4':verdict==='REVISE'?'#e8f43a':verdict==='MAJOR REWORK'?'#f4903a':'#f43a6e';
+  const headline = verdict==='APPROVED'?'Beat sheet solid — move to Greenlight':verdict==='REVISE'?'Good foundation — fix risks before greenlighting':verdict==='MAJOR REWORK'?'Structural issues — rework before proceeding':'Does not meet structure requirements';
+
+  recEl.innerHTML = `
+    <div style="background:rgba(192,158,244,0.06);border:1px solid rgba(192,158,244,0.2);border-radius:5px;padding:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-family:var(--display);font-size:13px;font-weight:800;color:${vColor};">${verdict}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vColor}33;padding:1px 6px;border-radius:2px;">${score}/95</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);font-style:italic;margin-bottom:8px;">${headline}</div>
+      <div style="font-size:10px;color:var(--text2);line-height:1.7;">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+      ${risks.length ? `<div style="font-size:10px;color:var(--red);margin-top:5px;line-height:1.6;">${risks.map(r=>`<div>− ${r}</div>`).join('')}</div>` : ''}
+      ${flags.length ? `<div style="font-size:10px;color:var(--amber);margin-top:4px;line-height:1.6;">${flags.map(f=>`<div>⚠ ${f}</div>`).join('')}</div>` : ''}
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#f4903a;margin-bottom:4px;">What's working for competitors</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6;">${intel.slice(0,2).map(i=>`📊 ${i}`).join('<br>')}</div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#3af4b4;margin-bottom:4px;">Fast TV edge</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6;">${edges.slice(0,2).map(e=>`⚡ ${e}`).join('<br>')}</div>
+      </div>
+    </div>`;
+}
+
+// ── SCRIPTING ANALYSIS (Strict + Competitor-Aware) ────────────────────────────
+function analyseScriptStrict(item, recEl) {
+  const script = item.script || '';
+  if(script.length < 500) {
+    recEl.innerHTML = `<div style="background:rgba(244,144,58,0.06);border:1px solid rgba(244,144,58,0.2);border-radius:5px;padding:10px;font-size:10px;color:var(--amber);">⚠ Paste the full script to get episode-by-episode analysis. Logline alone is not enough at scripting stage.</div>`;
+    return;
+  }
+
+  let score = 30;
+  const notes = [], risks = [], flags = [];
+  const s = script.toLowerCase();
+
+  const epMatches = script.match(/EPISODE\s+\d+/gi) || [];
+  const epCount = epMatches.length;
+  const wordCount = script.split(' ').length;
+  const wordsPerEp = epCount > 0 ? Math.round(wordCount/epCount) : 0;
+
+  if(epCount >= 40) score += 10; else if(epCount >= 20) score += 5;
+  notes.push(`📺 ${epCount} episodes · ~${wordCount.toLocaleString()} words · ~${wordsPerEp} words/ep`);
+  if(wordsPerEp > 0 && wordsPerEp < 250) notes.push('✅ Episode length lean — good for 60-90 second runtime');
+  else if(wordsPerEp > 500) { score -= 5; risks.push(`${wordsPerEp} words/ep is too dense — trim to under 250 for 90-second format`); }
+
+  const cliffCount = (script.match(/FADE OUT|SMASH CUT|END EPISODE|CLIFFHANGER/gi)||[]).length;
+  const cliffDensity = epCount > 0 ? cliffCount/epCount : 0;
+  if(cliffDensity >= 0.7) { score += 10; notes.push(`✅ ${cliffCount} cliffhangers — excellent density`); }
+  else if(cliffDensity >= 0.4) { score += 5; notes.push(`⚠️ ${cliffCount} cliffhangers — add more in episodes 5-15`); risks.push('60% of audience drops in episodes 5-15 — every episode needs a hook here'); }
+  else { score -= 8; risks.push(`CRITICAL: Only ${cliffCount} cliffhangers — every episode must end on a hook or question`); }
+
+  const dialogueLines = (script.match(/\n[A-Z ]{2,20}\n/g)||[]).length;
+  if(dialogueLines > 20) { score += 5; notes.push(`✅ ${dialogueLines} dialogue blocks — well-formatted`); }
+
+  const ep1 = (script.match(/EPISODE 1[\s\S]*?(?=EPISODE 2|$)/i)||[''])[0].toLowerCase();
+  const ep1Strong = ep1.includes('confrontation')||ep1.includes('cry')||ep1.includes('shock')||ep1.includes('reveal')||ep1.includes('slap')||ep1.includes('betrayal')||ep1.includes('baby')||ep1.includes('secret');
+  if(ep1Strong) { score += 8; notes.push('✅ Episode 1 opens with strong emotional hook'); }
+  else { score -= 6; risks.push('CRITICAL: Episode 1 opening is weak — audience decides in first 30 seconds'); }
+
+  const hasVillain = s.includes('villain')||s.includes('antagonist')||s.includes('blackmail')||s.includes('threat')||s.includes('evil')||s.includes('enemy');
+  if(hasVillain) { score += 5; notes.push('✅ Clear antagonist present — conflict engine established'); }
+  else risks.push('No clear villain — every micro-drama needs a defined antagonist');
+
+  const hasTwistScript = s.includes('dna')||s.includes('real identity')||s.includes('beti')||s.includes('maa')||s.includes('secret revealed')||s.includes('actually');
+  if(hasTwistScript) { score += 7; notes.push('✅ Major twist in script — your #1 marketing asset'); }
+
+  if(epCount < 20) { score -= 10; risks.push('Under 20 episodes — not viable for subscription monetisation'); }
+
+  // Competitor intel
+  const { intel, edges } = getCompetitorIntel(item.genre, item.lang);
+
+  score = Math.min(Math.max(score, 15), 95);
+  const verdict = score >= 80 ? 'PRODUCTION READY' : score >= 65 ? 'REVISE & RESUBMIT' : score >= 45 ? 'MAJOR REWRITE' : 'REJECT';
+  const vColor = verdict==='PRODUCTION READY'?'#3af4b4':verdict==='REVISE & RESUBMIT'?'#e8f43a':verdict==='MAJOR REWRITE'?'#f4903a':'#f43a6e';
+  const headline = verdict==='PRODUCTION READY'?'Script ready — move to Production':verdict==='REVISE & RESUBMIT'?'Good bones — fix issues and resubmit':verdict==='MAJOR REWRITE'?'Significant rewrite needed':'Does not meet production standards';
+
+  recEl.innerHTML = `
+    <div style="background:rgba(244,144,58,0.06);border:1px solid rgba(244,144,58,0.2);border-radius:5px;padding:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-family:var(--display);font-size:13px;font-weight:800;color:${vColor};">${verdict}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:${vColor};border:1px solid ${vColor}33;padding:1px 6px;border-radius:2px;">${score}/95</span>
+      </div>
+      <div style="font-size:10px;color:var(--text2);font-style:italic;margin-bottom:8px;">${headline}</div>
+      <div style="font-size:10px;color:var(--text2);line-height:1.7;">${notes.map(n=>`<div>${n}</div>`).join('')}</div>
+      ${risks.length ? `<div style="font-size:10px;color:var(--red);margin-top:5px;line-height:1.6;">${risks.map(r=>`<div>− ${r}</div>`).join('')}</div>` : ''}
+      ${flags.length ? `<div style="font-size:10px;color:var(--amber);margin-top:4px;">${flags.map(f=>`<div>⚠ ${f}</div>`).join('')}</div>` : ''}
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#f4903a;margin-bottom:4px;">What's working for competitors</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6;">${intel.slice(0,2).map(i=>`📊 ${i}`).join('<br>')}</div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px;">
+        <div style="font-family:var(--mono);font-size:9px;color:#3af4b4;margin-bottom:4px;">Fast TV edge</div>
+        <div style="font-size:10px;color:var(--text2);line-height:1.6;">${edges.slice(0,2).map(e=>`⚡ ${e}`).join('<br>')}</div>
+      </div>
+    </div>`;
+}
 function getGreenlightRec(prefix) {
   const title = document.getElementById(prefix+'-title').value.trim();
   const genre = document.getElementById(prefix+'-genre').value;
