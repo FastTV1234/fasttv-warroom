@@ -1786,7 +1786,6 @@ const DEFAULT_YT_CHANNELS = [
   { name:'Story TV', id:'UCggI7iGzyUO4Vs7U-__3BZQ', color:'#f4c03a' },
   { name:'DramaBox', id:'UC23wOTsr0ZZrZoyU2jWk6Kw', color:'#f4903a' },
   { name:'MX Fatafat', id:'UCXRAl3_Vw1fYJdGmk8i20Ug', color:'#3a9ef4' },
-  { name:'Kuku TV - Hindi Stories', id:'UCT4SdEMy6HGPUSgmkLO3qYA', color:'#3af4b4' },
 ];
 
 // Load channels from localStorage (allows adding custom channels)
@@ -1806,10 +1805,10 @@ function classifyGenre(title, description) {
 }
 
 // Clear stale detected shows cache to force fresh fetch with correct channel IDs
-if(!localStorage.getItem('fasttv_ytChannelsV4')) {
+if(!localStorage.getItem('fasttv_ytChannelsV5')) {
   localStorage.removeItem('fasttv_ytShows');
   localStorage.removeItem('fasttv_ytChannels');
-  localStorage.setItem('fasttv_ytChannelsV4', '1');
+  localStorage.setItem('fasttv_ytChannelsV5', '1');
 }
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
