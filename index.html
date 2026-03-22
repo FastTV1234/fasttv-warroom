@@ -888,7 +888,22 @@ function deleteLaunch(id) {
 }
 
 // ── Ad Intel ──────────────────────────────────────────────────────────────────
-let adIntelData = JSON.parse(localStorage.getItem('fasttv_adIntel') || '[]');
+const SEED_AD_DATA = [
+  { id:1, platform:'Kuku TV', title:'Veer Jindal', hook:'Six pack abs wala Veer Jindal! Ab konsi ladki resist kar sakti hai? Billionaire beach lifestyle.', channel:'Meta (Facebook/Instagram)', count:221, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:2, platform:'Kuku TV', title:'Bikhaari Se Ameer', hook:'Jis ladke ki bikhaari se madad ki, woh aaj... Reverse power dynamic — helpless man becomes powerful.', channel:'Meta (Facebook/Instagram)', count:266, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:3, platform:'Kuku TV', title:'Unknown Show (janna chahta hu)', hook:'"janna chahta hu" — curiosity/mystery hook. Male lead.', channel:'Meta (Facebook/Instagram)', count:265, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:4, platform:'Kuku TV', title:'Unknown Show (surprise arc)', hook:'"I\'m sure ye surprise..." — identity reveal / surprise ending hook.', channel:'Meta (Facebook/Instagram)', count:259, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:5, platform:'Kuku TV', title:'Unknown Show (female lead)', hook:'Close-up female lead — emotional drama. Running since Aug 2025.', channel:'Meta (Facebook/Instagram)', count:213, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:6, platform:'DramaBox', title:'Allie Allie', hook:'Woman behind bars — trapped female lead, emotional revenge/escape arc. Their #1 performer.', channel:'Meta (Facebook/Instagram)', count:262, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:7, platform:'DramaBox', title:'Power Walk (female authority)', hook:'Woman in heels walking with power and authority — no dialogue, pure visual dominance.', channel:'Meta (Facebook/Instagram)', count:252, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:8, platform:'DramaBox', title:'Unknown (woman in purple)', hook:'Female lead in purple — romantic/emotional drama. Running since Nov 2025.', channel:'Meta (Facebook/Instagram)', count:130, spike:'Heavy', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:9, platform:'DramaBox', title:'Unknown (suit/couple)', hook:'Man in suit with female lead — CEO/romance arc. Running since Dec 2025.', channel:'Meta (Facebook/Instagram)', count:109, spike:'Rising', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:10, platform:'DramaBox', title:'Unknown (woman white dress)', hook:'Woman in white dress — romantic setting, soft lighting. New launch Feb 2026.', channel:'Meta (Facebook/Instagram)', count:46, spike:'Rising', logger:'BigSpy Import', date:'2026-03-22' },
+  { id:11, platform:'DramaBox', title:'Silas Lancaster (global)', hook:'"He used to care, now he won\'t even pull out her chair." Immortal male lead. English, global — NOT India targeted.', channel:'Meta (Facebook/Instagram)', count:5, spike:'Stable', logger:'BigSpy Import', date:'2026-03-22' },
+];
+
+let adIntelData = JSON.parse(localStorage.getItem('fasttv_adIntel') || 'null');
+if(!adIntelData) { adIntelData = SEED_AD_DATA; localStorage.setItem('fasttv_adIntel', JSON.stringify(adIntelData)); }
 let adIdCounter = adIntelData.reduce((m,a) => Math.max(m, a.id||0), 0) + 1;
 function saveAdIntel() { localStorage.setItem('fasttv_adIntel', JSON.stringify(adIntelData)); }
 
