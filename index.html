@@ -224,10 +224,23 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
     <div class="card">
       <div class="card-head">
         <div class="card-title">🎬 New show detections (YouTube)</div>
-        <div class="section-sub">Auto-detected · updates every 2hrs</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="section-sub">Auto-detected · updates every 2hrs</div>
+          <button onclick="toggleChannelSettings()" style="font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;">⚙ Channels</button>
+        </div>
       </div>
-      <div class="card-body" id="yt-shows-feed" style="max-height:220px;overflow-y:auto;">
-        <div style="font-size:12px;color:var(--text3);">Scanning competitor YouTube channels...</div>
+      <div id="channel-settings" style="display:none;background:var(--bg3);border-radius:5px;padding:10px;margin:0 16px 10px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-bottom:8px;">TRACKED YOUTUBE CHANNELS</div>
+        <div id="channel-list" style="margin-bottom:8px;"></div>
+        <div style="display:flex;gap:6px;">
+          <input class="form-input" id="new-channel-name" placeholder="Platform name e.g. Kuku TV" style="font-size:11px;padding:4px 8px;flex:1;">
+          <input class="form-input" id="new-channel-id" placeholder="YouTube Channel ID e.g. UCxxxxx" style="font-size:11px;padding:4px 8px;flex:2;">
+          <button onclick="addYTChannel()" style="font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:3px;border:1px solid rgba(58,244,180,0.3);background:rgba(58,244,180,0.08);color:var(--green);cursor:pointer;">+ Add</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px;">To find a channel ID: go to the YouTube channel → view page source → search for "channelId"</div>
+      </div>
+      <div class="card-body" id="yt-shows-feed" style="max-height:260px;overflow-y:auto;">
+        <div style="font-size:12px;color:var(--text3);">Scanning competitor YouTube channels — last 2 weeks of launches will appear here...</div>
       </div>
     </div>
     <div class="card">
@@ -1767,13 +1780,17 @@ fetchLiveNews();
 setInterval(fetchLiveNews, 30 * 60 * 1000);
 
 // ── YouTube RSS — Auto Show Detection & Genre Classification ─────────────────
-const YT_CHANNELS = [
-  { name:'Kuku TV', id:'UCT4SdEMy6HGPUSgmkLO3qYA', color:'#3af4b4' },
-  { name:'Story TV', id:'UCvRVSMBKFH9UF59tqbmEa4g', color:'#c09ef4' },
-  { name:'QuickTV', id:'UCGzMKSdxPJUf5TJt1bBRBRQ', color:'#a8f43a' },
+// Default channels — add more via Settings in the war room
+const DEFAULT_YT_CHANNELS = [
+  { name:'Kuku TV', id:'UCBWz-Q6Lg6QjtUqnKZI01DQ', color:'#3af4b4' },
+  { name:'Story TV', id:'UCggI7iGzyUO4Vs7U-__3BZQ', color:'#f4c03a' },
+  { name:'DramaBox', id:'UC23wOTsr0ZZrZoyU2jWk6Kw', color:'#f4903a' },
   { name:'MX Fatafat', id:'UCXRAl3_Vw1fYJdGmk8i20Ug', color:'#3a9ef4' },
-  { name:'DramaBox', id:'UCi2-znVJMlbAIBfN7oYWo1A', color:'#f4903a' },
+  { name:'Kuku TV - Hindi Stories', id:'UCT4SdEMy6HGPUSgmkLO3qYA', color:'#3af4b4' },
 ];
+
+// Load channels from localStorage (allows adding custom channels)
+let YT_CHANNELS = JSON.parse(localStorage.getItem('fasttv_ytChannels') || 'null') || DEFAULT_YT_CHANNELS;
 
 function classifyGenre(title, description) {
   const t = (title + ' ' + (description||'')).toLowerCase();
@@ -1789,9 +1806,10 @@ function classifyGenre(title, description) {
 }
 
 // Clear stale detected shows cache to force fresh fetch with correct channel IDs
-if(!localStorage.getItem('fasttv_ytChannelsV2')) {
+if(!localStorage.getItem('fasttv_ytChannelsV4')) {
   localStorage.removeItem('fasttv_ytShows');
-  localStorage.setItem('fasttv_ytChannelsV2', '1');
+  localStorage.removeItem('fasttv_ytChannels');
+  localStorage.setItem('fasttv_ytChannelsV4', '1');
 }
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
@@ -1910,7 +1928,49 @@ function renderYTShowsFeed() {
   }).join('');
 }
 
-function fillLaunchDetails(platform, title, genre, date) {
+function toggleChannelSettings() {
+  const el = document.getElementById('channel-settings');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  if(el.style.display === 'block') renderChannelList();
+}
+
+function renderChannelList() {
+  const el = document.getElementById('channel-list');
+  if(!el) return;
+  el.innerHTML = YT_CHANNELS.map((ch, i) => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:${ch.color};flex-shrink:0;"></div>
+      <span style="font-size:11px;color:var(--text2);flex:1;">${ch.name}</span>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text3);">${ch.id.slice(0,12)}...</span>
+      <button onclick="removeYTChannel(${i})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:12px;padding:0 4px;">×</button>
+    </div>`).join('');
+}
+
+function addYTChannel() {
+  const name = document.getElementById('new-channel-name').value.trim();
+  const id = document.getElementById('new-channel-id').value.trim();
+  if(!name || !id) { alert('Please enter both platform name and channel ID'); return; }
+  const colors = ['#3af4b4','#f4903a','#f4c03a','#c09ef4','#3a9ef4','#f43a6e','#a8f43a'];
+  YT_CHANNELS.push({ name, id, color: colors[YT_CHANNELS.length % colors.length] });
+  localStorage.setItem('fasttv_ytChannels', JSON.stringify(YT_CHANNELS));
+  document.getElementById('new-channel-name').value = '';
+  document.getElementById('new-channel-id').value = '';
+  renderChannelList();
+  localStorage.removeItem('fasttv_ytShows');
+  detectedShows = [];
+  fetchYouTubeShows(true);
+  showToast(`Added ${name} to tracking`);
+}
+
+function removeYTChannel(idx) {
+  const name = YT_CHANNELS[idx].name;
+  YT_CHANNELS.splice(idx, 1);
+  localStorage.setItem('fasttv_ytChannels', JSON.stringify(YT_CHANNELS));
+  renderChannelList();
+  showToast(`Removed ${name} from tracking`);
+}
+
+
   // Pre-fill the add launch modal and open it
   openModal('add-launch');
   setTimeout(() => {
