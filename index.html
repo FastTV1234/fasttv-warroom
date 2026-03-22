@@ -1768,11 +1768,11 @@ setInterval(fetchLiveNews, 30 * 60 * 1000);
 
 // ── YouTube RSS — Auto Show Detection & Genre Classification ─────────────────
 const YT_CHANNELS = [
-  { name:'Kuku TV', id:'UCqTQgUnrdO8WJN3YALOKG9g', color:'#3af4b4' },
-  { name:'Story TV', id:'UCvtRTOXOJO3yFbJNkq0RRUA', color:'#c09ef4' },
+  { name:'Kuku TV', id:'UCT4SdEMy6HGPUSgmkLO3qYA', color:'#3af4b4' },
+  { name:'Story TV', id:'UCvRVSMBKFH9UF59tqbmEa4g', color:'#c09ef4' },
   { name:'QuickTV', id:'UCGzMKSdxPJUf5TJt1bBRBRQ', color:'#a8f43a' },
-  { name:'MX Fatafat', id:'UCvRVSMBKFH9UF59tqbmEa4g', color:'#3a9ef4' },
-  { name:'ReelSaga', id:'UCi2-znVJMlbAIBfN7oYWo1A', color:'#c09ef4' },
+  { name:'MX Fatafat', id:'UCXRAl3_Vw1fYJdGmk8i20Ug', color:'#3a9ef4' },
+  { name:'DramaBox', id:'UCi2-znVJMlbAIBfN7oYWo1A', color:'#f4903a' },
 ];
 
 function classifyGenre(title, description) {
@@ -1788,6 +1788,11 @@ function classifyGenre(title, description) {
   return 'Family drama';
 }
 
+// Clear stale detected shows cache to force fresh fetch with correct channel IDs
+if(!localStorage.getItem('fasttv_ytChannelsV2')) {
+  localStorage.removeItem('fasttv_ytShows');
+  localStorage.setItem('fasttv_ytChannelsV2', '1');
+}
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
 
