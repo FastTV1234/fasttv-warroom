@@ -1791,24 +1791,30 @@ function classifyGenre(title, description) {
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
 
-async function fetchYouTubeShows() {
+async function fetchYouTubeShows(isInitialLoad = false) {
   const newShows = [];
+  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+
   for(const ch of YT_CHANNELS) {
     try {
       const resp = await fetch(`/api/youtube?channelId=${ch.id}`);
       const items = await resp.json();
       items.forEach(item => {
         const existing = detectedShows.find(s => s.link === item.link);
-        if(!existing) {
+        const itemDate = item.pubDate ? new Date(item.pubDate) : new Date();
+
+        // On initial load: include last 2 weeks. On subsequent: only new ones
+        if(!existing && (isInitialLoad ? itemDate >= twoWeeksAgo : true)) {
           const genre = classifyGenre(item.title, '');
           const show = {
             id: Date.now() + Math.random(),
             platform: ch.name,
             title: item.title,
             genre,
-            date: item.pubDate ? new Date(item.pubDate).toISOString().slice(0,10) : new Date().toISOString().slice(0,10),
+            date: itemDate.toISOString().slice(0,10),
             link: item.link,
-            isNew: true
+            isNew: !isInitialLoad,
+            loggedToLaunches: false
           };
           newShows.push(show);
           detectedShows.unshift(show);
@@ -1817,11 +1823,35 @@ async function fetchYouTubeShows() {
     } catch(e) { /* skip */ }
   }
   saveDetectedShows();
+
   if(newShows.length > 0) {
     updateGenreChartFromYT();
     newShows.forEach(show => {
-      if(show.title.length > 5) showToast(`New show detected: ${show.title} on ${show.platform}`);
+      if(show.title.length > 5) {
+        const alreadyLogged = db.launches && db.launches.find(l =>
+          l.title.toLowerCase() === show.title.toLowerCase() && l.platform === show.platform
+        );
+        if(!alreadyLogged) {
+          send('ADD_LAUNCH', {
+            title: show.title,
+            platform: show.platform,
+            genre: show.genre,
+            lang: 'Hindi',
+            eps: null,
+            promo: 'Organic',
+            source: 'YouTube Channel',
+            hook: '',
+            notes: `Auto-detected from YouTube. Link: ${show.link}`,
+            logger: 'Auto-detect',
+            date: show.date
+          });
+          show.loggedToLaunches = true;
+          if(!isInitialLoad) showToast(`New show auto-logged: ${show.title} (${show.platform})`);
+        }
+      }
     });
+    saveDetectedShows();
+    if(isInitialLoad && newShows.length > 0) showToast(`Loaded ${newShows.length} shows from last 2 weeks`);
   }
   renderYTShowsFeed();
 }
@@ -1853,24 +1883,46 @@ function updateGenreChartFromYT() {
 
 function renderYTShowsFeed() {
   const el = document.getElementById('yt-shows-feed');
-  if(!el || detectedShows.length === 0) return;
-  const recent = detectedShows.slice(0, 10);
+  if(!el) return;
+  if(detectedShows.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);">Scanning competitor YouTube channels — last 2 weeks of launches will appear here...</div>';
+    return;
+  }
+  const recent = detectedShows.slice(0, 20);
   el.innerHTML = recent.map(s => {
     const pd = PLATFORMS.find(p => p.name === s.platform);
     const col = pd ? pd.tc : '#aaaaff';
-    return `<div class="alert-feed-item" style="cursor:pointer;" onclick="window.open('${s.link}','_blank')">
+    const daysAgo = Math.floor((Date.now() - new Date(s.date)) / 86400000);
+    const timeLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
+    return `<div class="alert-feed-item">
       <div class="alert-icon" style="background:${col};"></div>
-      <div class="alert-content">
-        <div class="alert-msg"><strong>${s.platform}:</strong> ${s.title}</div>
-        <div class="alert-time">${s.date} · <span style="color:${col};">${s.genre}</span></div>
+      <div class="alert-content" style="flex:1;">
+        <div class="alert-msg"><strong style="color:${col};">${s.platform}:</strong> ${s.title}</div>
+        <div class="alert-time">${timeLabel} · <span style="color:${col};">${s.genre}</span> · <a href="${s.link}" target="_blank" style="color:var(--blue);text-decoration:none;">Watch ↗</a></div>
       </div>
+      <button onclick="fillLaunchDetails('${s.platform}','${s.title.replace(/'/g,"\\'")}','${s.genre}','${s.date}')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:3px;border:1px solid rgba(58,158,244,0.3);background:rgba(58,158,244,0.06);color:var(--blue);cursor:pointer;flex-shrink:0;margin-left:8px;">+ Fill details</button>
     </div>`;
   }).join('');
 }
 
-// Fetch YouTube shows on load and every 2 hours
-fetchYouTubeShows();
-setInterval(fetchYouTubeShows, 2 * 60 * 60 * 1000);
+function fillLaunchDetails(platform, title, genre, date) {
+  // Pre-fill the add launch modal and open it
+  openModal('add-launch');
+  setTimeout(() => {
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+    setVal('launch-title', title);
+    setVal('launch-platform', platform);
+    setVal('launch-genre', genre);
+    setVal('launch-lang', 'Hindi');
+    setVal('launch-source', 'YouTube Channel');
+    setVal('launch-promo', 'Organic');
+    setVal('launch-notes', `Auto-detected from YouTube on ${date}`);
+  }, 100);
+}
+
+// Fetch YouTube shows — initial load gets last 2 weeks, then updates every 2 hours
+fetchYouTubeShows(true);
+setInterval(() => fetchYouTubeShows(false), 2 * 60 * 60 * 1000);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 // Dynamic platform count
