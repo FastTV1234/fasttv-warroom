@@ -127,46 +127,35 @@ app.get('/api/news', async (req, res) => {
 app.get('/api/youtube', async (req, res) => {
   const channelId = req.query.channelId;
   if(!channelId) return res.json([]);
-  
-  // Try multiple proxy methods
-  const proxies = [
-    `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId)}&count=15`,
-    `https://feedparser.deno.dev/?url=${encodeURIComponent('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId)}`,
-  ];
 
-  for(const proxyUrl of proxies) {
-    try {
-      const data = await fetchUrl(proxyUrl);
-      const parsed = JSON.parse(data);
-      
-      // rss2json format
-      if(parsed.items && parsed.items.length > 0) {
-        const items = parsed.items.map(item => ({
-          title: item.title || '',
-          link: item.link || '',
-          pubDate: item.pubDate || ''
-        }));
-        return res.json(items);
-      }
-    } catch(e) { /* try next proxy */ }
-  }
-  
-  // Last resort — try direct YouTube XML
+  // Try direct YouTube XML first (Railway can reach YouTube)
   try {
     const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
     const xml = await fetchUrl(url);
-    const items = [];
-    const entryMatches = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
-    entryMatches.slice(0, 15).forEach(entry => {
-      const title = (entry.match(/<title>(.*?)<\/title>/) || [])[1] || '';
-      const link = (entry.match(/<link rel="alternate" href="(.*?)"/) || [])[1] || '';
-      const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || '';
-      if(title) items.push({ title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), link, pubDate: published });
-    });
-    return res.json(items);
-  } catch(e) {
-    return res.json([]);
-  }
+    if(xml.includes('<entry>')) {
+      const items = [];
+      const entryMatches = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
+      entryMatches.slice(0, 15).forEach(entry => {
+        const title = (entry.match(/<title>(.*?)<\/title>/) || [])[1] || '';
+        const link = (entry.match(/<link rel="alternate" href="(.*?)"/) || [])[1] || '';
+        const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || '';
+        if(title) items.push({ title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), link, pubDate: published });
+      });
+      if(items.length > 0) return res.json(items);
+    }
+  } catch(e) { /* fall through to proxy */ }
+
+  // Fallback — rss2json proxy
+  try {
+    const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId)}&count=15`;
+    const data = await fetchUrl(proxyUrl);
+    const parsed = JSON.parse(data);
+    if(parsed.items && parsed.items.length > 0) {
+      return res.json(parsed.items.map(item => ({ title: item.title || '', link: item.link || '', pubDate: item.pubDate || '' })));
+    }
+  } catch(e) { /* skip */ }
+
+  return res.json([]);
 });
 
 // ── Clear data endpoint (wipes saved data.json back to empty defaults) ─────────
