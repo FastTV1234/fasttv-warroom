@@ -1890,34 +1890,47 @@ async function fetchYouTubeShows(isInitialLoad = false) {
 
   for(const ch of YT_CHANNELS) {
     try {
-      // Use allorigins as CORS proxy — browser-side, bypasses Railway network restrictions
       const ytUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(ytUrl)}`;
-      const resp = await fetch(proxyUrl);
-      const data = await resp.json();
-      const xml = data.contents || '';
+      // Try multiple CORS proxies with timeout
+      let xml = '';
+      const proxies = [
+        `https://corsproxy.io/?${encodeURIComponent(ytUrl)}`,
+        `https://api.allorigins.win/get?url=${encodeURIComponent(ytUrl)}`,
+      ];
+      for(const proxyUrl of proxies) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const resp = await fetch(proxyUrl, { signal: controller.signal });
+          clearTimeout(timeout);
+          if(proxyUrl.includes('allorigins')) {
+            const data = await resp.json();
+            xml = data.contents || '';
+          } else {
+            xml = await resp.text();
+          }
+          if(xml.includes('<entry>')) break; // got good data
+        } catch(e) { continue; }
+      }
 
-      // Parse XML entries
+      if(!xml) continue;
       const entryMatches = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
-      const items = entryMatches.slice(0, 15).map(entry => {
+      entryMatches.slice(0, 15).forEach(entry => {
         const title = (entry.match(/<title>(.*?)<\/title>/) || [])[1] || '';
         const link = (entry.match(/<link rel="alternate" href="(.*?)"/) || [])[1] || '';
         const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || '';
-        return { title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), link, pubDate: published };
-      }).filter(i => i.title);
-
-      items.forEach(item => {
-        const existing = detectedShows.find(s => s.link === item.link);
-        const itemDate = item.pubDate ? new Date(item.pubDate) : new Date();
+        if(!title) return;
+        const existing = detectedShows.find(s => s.link === link);
+        const itemDate = published ? new Date(published) : new Date();
         if(!existing && (isInitialLoad ? itemDate >= twoWeeksAgo : true)) {
-          const genre = classifyGenre(item.title, '');
+          const cleanTitle = cleanYTTitle(title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'));
           const show = {
             id: Date.now() + Math.random(),
             platform: ch.name,
-            title: cleanYTTitle(item.title),
-            genre,
+            title: cleanTitle,
+            genre: classifyGenre(cleanTitle, ''),
             date: itemDate.toISOString().slice(0,10),
-            link: item.link,
+            link,
             isNew: !isInitialLoad,
             loggedToLaunches: false
           };
@@ -1925,38 +1938,34 @@ async function fetchYouTubeShows(isInitialLoad = false) {
           detectedShows.unshift(show);
         }
       });
-    } catch(e) { /* skip */ }
+    } catch(e) { /* skip channel */ }
   }
 
   saveDetectedShows();
   if(newShows.length > 0) {
     updateGenreChartFromYT();
     newShows.forEach(show => {
-      if(show.title.length > 5) {
+      if(show.title.length > 3) {
         const alreadyLogged = db.launches && db.launches.find(l =>
           l.title.toLowerCase() === show.title.toLowerCase() && l.platform === show.platform
         );
         if(!alreadyLogged) {
           send('ADD_LAUNCH', {
-            title: show.title,
-            platform: show.platform,
-            genre: show.genre,
-            lang: 'Hindi',
-            eps: null,
-            promo: 'Organic',
-            source: 'YouTube Channel',
-            hook: '',
-            notes: `Auto-detected from YouTube. Link: ${show.link}`,
-            logger: 'Auto-detect',
-            date: show.date
+            title: show.title, platform: show.platform, genre: show.genre,
+            lang: 'Hindi', eps: null, promo: 'Organic', source: 'YouTube Channel',
+            hook: '', notes: `Auto-detected. Link: ${show.link}`,
+            logger: 'Auto-detect', date: show.date
           });
           show.loggedToLaunches = true;
-          if(!isInitialLoad) showToast(`New show detected: ${show.title} (${show.platform})`);
+          if(!isInitialLoad) showToast(`New: ${show.title} (${show.platform})`);
         }
       }
     });
     saveDetectedShows();
-    if(isInitialLoad && newShows.length > 0) showToast(`Loaded ${newShows.length} shows from last 2 weeks`);
+    if(isInitialLoad) showToast(`Loaded ${newShows.length} shows from last 2 weeks`);
+  } else if(isInitialLoad) {
+    // No new shows — render whatever we have cached
+    renderYTShowsFeed();
   }
   renderYTShowsFeed();
 }
