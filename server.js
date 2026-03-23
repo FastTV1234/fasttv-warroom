@@ -98,32 +98,74 @@ app.get('/api/news', async (req, res) => {
   const q = req.query.q;
   if(!q) return res.json([]);
   try {
-    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
-    const xml = await fetchUrl(url);
-    const items = parseRSS(xml);
-    res.json(items);
-  } catch(e) {
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+    const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=5`;
+    const data = await fetchUrl(proxyUrl);
+    const parsed = JSON.parse(data);
+    if(parsed.items) {
+      return res.json(parsed.items.map(item => ({
+        title: item.title || '',
+        link: item.link || '',
+        pubDate: item.pubDate || '',
+        source: item.author || ''
+      })));
+    }
     res.json([]);
+  } catch(e) {
+    // Fallback to direct fetch
+    try {
+      const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+      const xml = await fetchUrl(url);
+      const items = parseRSS(xml);
+      res.json(items);
+    } catch(e2) {
+      res.json([]);
+    }
   }
 });
 
 app.get('/api/youtube', async (req, res) => {
   const channelId = req.query.channelId;
   if(!channelId) return res.json([]);
+  
+  // Try multiple proxy methods
+  const proxies = [
+    `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId)}&count=15`,
+    `https://feedparser.deno.dev/?url=${encodeURIComponent('https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId)}`,
+  ];
+
+  for(const proxyUrl of proxies) {
+    try {
+      const data = await fetchUrl(proxyUrl);
+      const parsed = JSON.parse(data);
+      
+      // rss2json format
+      if(parsed.items && parsed.items.length > 0) {
+        const items = parsed.items.map(item => ({
+          title: item.title || '',
+          link: item.link || '',
+          pubDate: item.pubDate || ''
+        }));
+        return res.json(items);
+      }
+    } catch(e) { /* try next proxy */ }
+  }
+  
+  // Last resort — try direct YouTube XML
   try {
     const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
     const xml = await fetchUrl(url);
     const items = [];
     const entryMatches = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
-    entryMatches.slice(0, 10).forEach(entry => {
+    entryMatches.slice(0, 15).forEach(entry => {
       const title = (entry.match(/<title>(.*?)<\/title>/) || [])[1] || '';
       const link = (entry.match(/<link rel="alternate" href="(.*?)"/) || [])[1] || '';
       const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || '';
       if(title) items.push({ title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), link, pubDate: published });
     });
-    res.json(items);
+    return res.json(items);
   } catch(e) {
-    res.json([]);
+    return res.json([]);
   }
 });
 
