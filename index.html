@@ -800,14 +800,17 @@ async function fetchPlatformNews() {
   ];
   for(const platform of platforms_to_track) {
     try {
-      const resp = await fetch(`/api/news?q=${encodeURIComponent(platform + ' micro drama India')}`);
-      const items = await resp.json();
-      if(items && items.length > 0) {
-        platformNewsCache[platform] = {
-          title: items[0].title,
-          link: items[0].link,
-          date: new Date(items[0].pubDate)
-        };
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(platform + ' micro drama India')}&hl=en-IN&gl=IN&ceid=IN:en`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
+      const resp = await fetch(proxyUrl);
+      const data = await resp.json();
+      const xml = data.contents || '';
+      const itemMatch = xml.match(/<item>([\s\S]*?)<\/item>/);
+      if(itemMatch) {
+        const title = (itemMatch[1].match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || itemMatch[1].match(/<title>(.*?)<\/title>/) || [])[1] || '';
+        const link = (itemMatch[1].match(/<link>(.*?)<\/link>/) || [])[1] || '';
+        const pubDate = (itemMatch[1].match(/<pubDate>(.*?)<\/pubDate>/) || [])[1] || '';
+        if(title) platformNewsCache[platform] = { title: title.replace(/&amp;/g,'&'), link, date: new Date(pubDate) };
       }
     } catch(e) { /* skip */ }
   }
@@ -1779,14 +1782,20 @@ async function fetchLiveNews() {
   const allItems = [];
   for(const q of queries) {
     try {
-      const resp = await fetch(`/api/news?q=${encodeURIComponent(q)}`);
-      const items = await resp.json();
-      items.forEach(item => allItems.push({
-        title: item.title,
-        link: item.link,
-        date: new Date(item.pubDate),
-        source: item.source || 'News'
-      }));
+      const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
+      const resp = await fetch(proxyUrl);
+      const data = await resp.json();
+      const xml = data.contents || '';
+      // Parse RSS items from XML
+      const itemMatches = xml.match(/<item>([\s\S]*?)<\/item>/g) || [];
+      itemMatches.slice(0,3).forEach(item => {
+        const title = (item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/) || item.match(/<title>(.*?)<\/title>/) || [])[1] || '';
+        const link = (item.match(/<link>(.*?)<\/link>/) || [])[1] || '';
+        const pubDate = (item.match(/<pubDate>(.*?)<\/pubDate>/) || [])[1] || '';
+        const source = (item.match(/<source[^>]*>(.*?)<\/source>/) || [])[1] || 'News';
+        if(title) allItems.push({ title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), link, date: new Date(pubDate), source });
+      });
     } catch(e) { /* skip */ }
   }
 
@@ -1842,6 +1851,14 @@ const DEFAULT_YT_CHANNELS = [
 // Load channels from localStorage (allows adding custom channels)
 let YT_CHANNELS = JSON.parse(localStorage.getItem('fasttv_ytChannels') || 'null') || DEFAULT_YT_CHANNELS;
 
+function cleanYTTitle(title) {
+  return title
+    .split('|')[0]
+    .replace(/#\S+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function classifyGenre(title, description) {
   const t = (title + ' ' + (description||'')).toLowerCase();
   if(t.includes('billionaire') || t.includes('ceo') || t.includes('boss') || t.includes('rich') || t.includes('malik') || t.includes('empire') || t.includes('wealthy') || t.includes('crore')) return 'Romance / CEO';
@@ -1856,10 +1873,10 @@ function classifyGenre(title, description) {
 }
 
 // Clear stale detected shows cache to force fresh fetch with correct channel IDs
-if(!localStorage.getItem('fasttv_ytChannelsV6')) {
+if(!localStorage.getItem('fasttv_ytChannelsV7')) {
   localStorage.removeItem('fasttv_ytShows');
   localStorage.removeItem('fasttv_ytChannels');
-  localStorage.setItem('fasttv_ytChannelsV6', '1');
+  localStorage.setItem('fasttv_ytChannelsV7', '1');
 }
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
@@ -1870,19 +1887,31 @@ async function fetchYouTubeShows(isInitialLoad = false) {
 
   for(const ch of YT_CHANNELS) {
     try {
-      const resp = await fetch(`/api/youtube?channelId=${ch.id}`);
-      const items = await resp.json();
+      // Use allorigins as CORS proxy — browser-side, bypasses Railway network restrictions
+      const ytUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(ytUrl)}`;
+      const resp = await fetch(proxyUrl);
+      const data = await resp.json();
+      const xml = data.contents || '';
+
+      // Parse XML entries
+      const entryMatches = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
+      const items = entryMatches.slice(0, 15).map(entry => {
+        const title = (entry.match(/<title>(.*?)<\/title>/) || [])[1] || '';
+        const link = (entry.match(/<link rel="alternate" href="(.*?)"/) || [])[1] || '';
+        const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || '';
+        return { title: title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'), link, pubDate: published };
+      }).filter(i => i.title);
+
       items.forEach(item => {
         const existing = detectedShows.find(s => s.link === item.link);
         const itemDate = item.pubDate ? new Date(item.pubDate) : new Date();
-
-        // On initial load: include last 2 weeks. On subsequent: only new ones
         if(!existing && (isInitialLoad ? itemDate >= twoWeeksAgo : true)) {
           const genre = classifyGenre(item.title, '');
           const show = {
             id: Date.now() + Math.random(),
             platform: ch.name,
-            title: item.title,
+            title: cleanYTTitle(item.title),
             genre,
             date: itemDate.toISOString().slice(0,10),
             link: item.link,
@@ -1895,8 +1924,8 @@ async function fetchYouTubeShows(isInitialLoad = false) {
       });
     } catch(e) { /* skip */ }
   }
-  saveDetectedShows();
 
+  saveDetectedShows();
   if(newShows.length > 0) {
     updateGenreChartFromYT();
     newShows.forEach(show => {
@@ -1919,7 +1948,7 @@ async function fetchYouTubeShows(isInitialLoad = false) {
             date: show.date
           });
           show.loggedToLaunches = true;
-          if(!isInitialLoad) showToast(`New show auto-logged: ${show.title} (${show.platform})`);
+          if(!isInitialLoad) showToast(`New show detected: ${show.title} (${show.platform})`);
         }
       }
     });
