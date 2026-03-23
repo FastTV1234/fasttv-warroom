@@ -689,6 +689,7 @@ function connectWS() {
         db = payload;
         renderAll();
         seedLaunchesIfEmpty();
+        fetchYouTubeShows(true);
         break;
       case 'ADD_TASK':
         db.tasks.unshift(payload);
@@ -2065,7 +2066,7 @@ function fillLaunchDetails(platform, title, genre, date) {
 }
 
 // Fetch YouTube shows — initial load gets last 2 weeks, then updates every 2 hours
-fetchYouTubeShows(true);
+// Called after WS connects so db is populated
 setInterval(() => fetchYouTubeShows(false), 2 * 60 * 60 * 1000);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
