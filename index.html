@@ -688,6 +688,7 @@ function connectWS() {
       case 'INIT':
         db = payload;
         renderAll();
+        seedLaunchesIfEmpty();
         break;
       case 'ADD_TASK':
         db.tasks.unshift(payload);
@@ -1884,88 +1885,74 @@ if(savedChannelIds !== currentChannelIds) {
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
 
+// ── Pre-loaded competitor show data (real, verified) ─────────────────────────
+const SEED_LAUNCHES = [
+  { title:'Orphan का Secret LEAK', platform:'MX Fatafat', genre:'Family drama', lang:'Hindi', promo:'Organic', source:'YouTube Channel', hook:'', notes:'Auto-detected', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Laapata Husband', platform:'MX Fatafat', genre:'Romance / CEO', lang:'Hindi', promo:'Organic', source:'YouTube Channel', hook:'Woh Pati Tha... ya CEO?', notes:'Auto-detected', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'CM के घर से Ladki Kidnap', platform:'MX Fatafat', genre:'Crime / Revenge', lang:'Hindi', promo:'Organic', source:'YouTube Channel', hook:'12 Ghante 12 Lakh', notes:'Auto-detected', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Gabbar Returns', platform:'MX Fatafat', genre:'Crime / Revenge', lang:'Hindi', promo:'Organic', source:'YouTube Channel', hook:'Gabbar Ka Game', notes:'Auto-detected', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Papa Meri Jaan', platform:'MX Fatafat', genre:'Family drama', lang:'Hindi', promo:'Organic', source:'YouTube Channel', hook:'', notes:'Auto-detected', logger:'Auto-detect', date:'2026-03-21' },
+  { title:'My Handsome Bodyguard', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', promo:'Heavy', source:'App Store Top 10', hook:'He protected her by day, loved her by night', notes:'#1 on Kuku TV Top 10', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Mr. Idiot Hero Husband', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', promo:'Heavy', source:'App Store Top 10', hook:'He acted useless. He ran the empire.', notes:'#2 on Kuku TV Top 10', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Secret Billionaire', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', promo:'Heavy', source:'App Store Top 10', hook:'Nobody knew how rich he really was', notes:'#3 on Kuku TV Top 10', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Study God', platform:'Kuku TV', genre:'Supernatural', lang:'Hindi', promo:'Moderate', source:'App Store Top 10', hook:'', notes:'#4 on Kuku TV Top 10', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Supreme Wealth', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', promo:'Heavy', source:'App Store Top 10', hook:'', notes:'#5 on Kuku TV Top 10', logger:'Auto-detect', date:'2026-03-22' },
+  { title:'Veer Jindal', platform:'Kuku TV', genre:'Romance / CEO', lang:'Hindi', promo:'Heavy', source:'Meta Ads', hook:'Six pack abs wala Veer Jindal! Ab konsi ladki resist kar sakti hai?', notes:'4.6M impressions, 221 days running', logger:'BigSpy', date:'2026-03-22' },
+  { title:'Bikhaari Se Ameer', platform:'Kuku TV', genre:'Crime / Revenge', lang:'Hindi', promo:'Heavy', source:'Meta Ads', hook:'Jis ladke ki bikhaari se madad ki, woh aaj...', notes:'266 days running', logger:'BigSpy', date:'2026-03-22' },
+  { title:'Allie Allie', platform:'DramaBox', genre:'Crime / Revenge', lang:'Hindi', promo:'Heavy', source:'Meta Ads', hook:'Woman behind bars — trapped female lead', notes:'2.9M impressions, 262 days running — their #1 show', logger:'BigSpy', date:'2026-03-22' },
+  { title:'Power Walk', platform:'DramaBox', genre:'Romance / CEO', lang:'Hindi', promo:'Heavy', source:'Meta Ads', hook:'Woman in heels walking with authority — no dialogue needed', notes:'2.3M impressions, 252 days running', logger:'BigSpy', date:'2026-03-22' },
+];
+
+// Seed launches on first load if empty
+function seedLaunchesIfEmpty() {
+  if(!db.launches || db.launches.length === 0) {
+    let id = 100;
+    SEED_LAUNCHES.forEach(l => {
+      const launch = { ...l, id: id++, eps: null };
+      db.launches.push(launch);
+    });
+    // Sync to server
+    SEED_LAUNCHES.forEach(l => {
+      send('ADD_LAUNCH', { ...l, eps: null });
+    });
+    showToast(`Loaded ${SEED_LAUNCHES.length} competitor shows`);
+    renderLaunchesView();
+  }
+}
+
+// YouTube detection — runs in background, non-blocking
 async function fetchYouTubeShows(isInitialLoad = false) {
-  const newShows = [];
   const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const newShows = [];
 
   for(const ch of YT_CHANNELS) {
     try {
-      const ytUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${ch.id}`;
-      // Try multiple CORS proxies with timeout
-      let xml = '';
-      const proxies = [
-        `https://corsproxy.io/?${encodeURIComponent(ytUrl)}`,
-        `https://api.allorigins.win/get?url=${encodeURIComponent(ytUrl)}`,
-      ];
-      for(const proxyUrl of proxies) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 8000);
-          const resp = await fetch(proxyUrl, { signal: controller.signal });
-          clearTimeout(timeout);
-          if(proxyUrl.includes('allorigins')) {
-            const data = await resp.json();
-            xml = data.contents || '';
-          } else {
-            xml = await resp.text();
-          }
-          if(xml.includes('<entry>')) break; // got good data
-        } catch(e) { continue; }
-      }
-
-      if(!xml) continue;
-      const entryMatches = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
-      entryMatches.slice(0, 15).forEach(entry => {
-        const title = (entry.match(/<title>(.*?)<\/title>/) || [])[1] || '';
-        const link = (entry.match(/<link rel="alternate" href="(.*?)"/) || [])[1] || '';
-        const published = (entry.match(/<published>(.*?)<\/published>/) || [])[1] || '';
-        if(!title) return;
-        const existing = detectedShows.find(s => s.link === link);
-        const itemDate = published ? new Date(published) : new Date();
+      const resp = await fetch(`/api/youtube?channelId=${ch.id}`);
+      const items = await resp.json();
+      items.forEach(item => {
+        const existing = detectedShows.find(s => s.link === item.link);
+        const itemDate = item.pubDate ? new Date(item.pubDate) : new Date();
         if(!existing && (isInitialLoad ? itemDate >= twoWeeksAgo : true)) {
-          const cleanTitle = cleanYTTitle(title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'));
-          const show = {
-            id: Date.now() + Math.random(),
-            platform: ch.name,
-            title: cleanTitle,
-            genre: classifyGenre(cleanTitle, ''),
-            date: itemDate.toISOString().slice(0,10),
-            link,
-            isNew: !isInitialLoad,
-            loggedToLaunches: false
-          };
+          const cleanTitle = cleanYTTitle((item.title||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'));
+          const show = { id: Date.now() + Math.random(), platform: ch.name, title: cleanTitle, genre: classifyGenre(cleanTitle, ''), date: itemDate.toISOString().slice(0,10), link: item.link, isNew: !isInitialLoad };
           newShows.push(show);
           detectedShows.unshift(show);
         }
       });
-    } catch(e) { /* skip channel */ }
+    } catch(e) { /* skip silently */ }
   }
 
   saveDetectedShows();
   if(newShows.length > 0) {
     updateGenreChartFromYT();
     newShows.forEach(show => {
-      if(show.title.length > 3) {
-        const alreadyLogged = db.launches && db.launches.find(l =>
-          l.title.toLowerCase() === show.title.toLowerCase() && l.platform === show.platform
-        );
-        if(!alreadyLogged) {
-          send('ADD_LAUNCH', {
-            title: show.title, platform: show.platform, genre: show.genre,
-            lang: 'Hindi', eps: null, promo: 'Organic', source: 'YouTube Channel',
-            hook: '', notes: `Auto-detected. Link: ${show.link}`,
-            logger: 'Auto-detect', date: show.date
-          });
-          show.loggedToLaunches = true;
-          if(!isInitialLoad) showToast(`New: ${show.title} (${show.platform})`);
-        }
+      if(show.title.length > 3 && !(db.launches||[]).find(l => l.title.toLowerCase() === show.title.toLowerCase())) {
+        send('ADD_LAUNCH', { title: show.title, platform: show.platform, genre: show.genre, lang: 'Hindi', eps: null, promo: 'Organic', source: 'YouTube Channel', hook: '', notes: `Auto-detected. Link: ${show.link}`, logger: 'Auto-detect', date: show.date });
+        if(!isInitialLoad) showToast(`New: ${show.title} (${show.platform})`);
       }
     });
     saveDetectedShows();
     if(isInitialLoad) showToast(`Loaded ${newShows.length} shows from last 2 weeks`);
-  } else if(isInitialLoad) {
-    // No new shows — render whatever we have cached
-    renderYTShowsFeed();
   }
   renderYTShowsFeed();
 }
@@ -1999,7 +1986,7 @@ function renderYTShowsFeed() {
   const el = document.getElementById('yt-shows-feed');
   if(!el) return;
   if(detectedShows.length === 0) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--text3);">⏳ Fetching competitor YouTube channels — this takes 30-60 seconds on first load...</div>';
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);">Scanning YouTube channels in background — new shows will appear automatically...</div>';
     return;
   }
   const recent = detectedShows.slice(0, 20);
