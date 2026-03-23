@@ -1873,10 +1873,13 @@ function classifyGenre(title, description) {
 }
 
 // Clear stale detected shows cache to force fresh fetch with correct channel IDs
-if(!localStorage.getItem('fasttv_ytChannelsV7')) {
+// Only clear cache if channels list has changed
+const savedChannelIds = localStorage.getItem('fasttv_savedChannelIds');
+const currentChannelIds = DEFAULT_YT_CHANNELS.map(c => c.id).join(',');
+if(savedChannelIds !== currentChannelIds) {
   localStorage.removeItem('fasttv_ytShows');
   localStorage.removeItem('fasttv_ytChannels');
-  localStorage.setItem('fasttv_ytChannelsV7', '1');
+  localStorage.setItem('fasttv_savedChannelIds', currentChannelIds);
 }
 let detectedShows = JSON.parse(localStorage.getItem('fasttv_ytShows') || '[]');
 function saveDetectedShows() { localStorage.setItem('fasttv_ytShows', JSON.stringify(detectedShows.slice(0,200))); }
@@ -1987,7 +1990,7 @@ function renderYTShowsFeed() {
   const el = document.getElementById('yt-shows-feed');
   if(!el) return;
   if(detectedShows.length === 0) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--text3);">Scanning competitor YouTube channels — last 2 weeks of launches will appear here...</div>';
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);">⏳ Fetching competitor YouTube channels — this takes 30-60 seconds on first load...</div>';
     return;
   }
   const recent = detectedShows.slice(0, 20);
